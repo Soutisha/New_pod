@@ -13,163 +13,255 @@ body {
     background-color: #f9f9f9;
 }
 
-h1 {
-    font-size: 36px;
-    color: #333;
-    margin-bottom: 20px;
+.app-layout {
+    display: flex;
+    flex-direction: row;
+    height: 100vh;
 }
 
-h2 {
-    font-size: 24px;
-    color: #333;
+.nav.sidebar {
+    width: 200px;
+    background-color: #333;
+    padding: 20px;
+    color: #fff;
+}
+
+.nav.sidebar ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.nav.sidebar li {
     margin-bottom: 10px;
 }
 
-p {
-    font-size: 18px;
-    color: #666;
-    margin-bottom: 20px;
-}
-
-a {
-    text-decoration: none;
-    color: #337ab7;
-}
-
-a:hover {
-    color: #23527c;
-}
-
-/* Layout Styles */
-
-.app-layout {
-    max-width: 1200px;
-    margin: 40px auto;
-    padding: 20px;
-    background-color: #fff;
-    border: 1px solid #ddd;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
-.navbar {
-    background-color: #333;
-    padding: 10px;
-    text-align: center;
-}
-
-.navbar ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-}
-
-.navbar li {
-    display: inline-block;
-    margin-right: 20px;
-}
-
-.navbar a {
+.nav.sidebar a {
     color: #fff;
     text-decoration: none;
 }
 
-.navbar a:hover {
+.nav.sidebar a:hover {
     color: #ccc;
 }
 
-.sidebar {
+.main.content {
+    flex: 1;
+    padding: 20px;
+    background-color: #fff;
+}
+
+/* Dashboard Styles */
+
+.dashboard {
+    display: flex;
+    flex-direction: row;
+}
+
+.dashboard .sidebar {
     width: 200px;
-    float: left;
+    background-color: #333;
     padding: 20px;
-    background-color: #f9f9f9;
-    border-right: 1px solid #ddd;
+    color: #fff;
 }
 
-.content {
-    width: 800px;
-    float: right;
+.dashboard .sidebar ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.dashboard .sidebar li {
+    margin-bottom: 10px;
+}
+
+.dashboard .sidebar a {
+    color: #fff;
+    text-decoration: none;
+}
+
+.dashboard .sidebar a:hover {
+    color: #ccc;
+}
+
+.dashboard .content {
+    flex: 1;
     padding: 20px;
+    background-color: #fff;
 }
 
-/* Component Styles */
+.dashboard .content table {
+    width: 100%;
+    border-collapse: collapse;
+}
 
-.badge {
-    background-color: #337ab7;
+.dashboard .content th, .dashboard .content td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: left;
+}
+
+.dashboard .content th {
+    background-color: #f0f0f0;
+}
+
+.dashboard .content td {
+    background-color: #fff;
+}
+
+.dashboard .content input[type="date"] {
+    width: 100%;
+    height: 30px;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+}
+
+.dashboard .content input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin: 10px;
+}
+
+.dashboard .content button[type="submit"] {
+    width: 100%;
+    height: 30px;
+    padding: 10px;
+    font-size: 16px;
+    background-color: #333;
     color: #fff;
-    padding: 5px 10px;
-    border-radius: 50%;
-    font-size: 12px;
+    border: none;
+    cursor: pointer;
 }
 
-.status-pill {
-    background-color: #337ab7;
-    color: #fff;
-    padding: 5px 10px;
-    border-radius: 50%;
-    font-size: 12px;
-}
-
-.data-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px;
-    border-bottom: 1px solid #ddd;
-}
-
-.input-group {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px;
-}
-
-.sidebar-item {
-    padding: 10px;
-    border-bottom: 1px solid #ddd;
-}
-
-.sidebar-item:hover {
-    background-color: #f9f9f9;
+.dashboard .content button[type="submit"]:hover {
+    background-color: #444;
 }
 
 /* Responsive Styles */
 
 @media only screen and (max-width: 768px) {
-    .sidebar {
+    .app-layout {
+        flex-direction: column;
+    }
+
+    .nav.sidebar {
         width: 100%;
-        float: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        background-color: #333;
         padding: 20px;
+        color: #fff;
     }
 
-    .content {
-        width: 100%;
-        float: none;
-        padding: 20px;
-    }
-}
-
-@media only screen and (max-width: 480px) {
-    .navbar {
-        padding: 10px;
-    }
-
-    .navbar ul {
+    .nav.sidebar ul {
         list-style: none;
-        margin: 0;
         padding: 0;
+        margin: 0;
     }
 
-    .navbar li {
-        display: block;
+    .nav.sidebar li {
         margin-bottom: 10px;
     }
 
-    .navbar a {
-        color: #337ab7;
+    .nav.sidebar a {
+        color: #fff;
+        text-decoration: none;
     }
 
-    .navbar a:hover {
-        color: #23527c;
+    .nav.sidebar a:hover {
+        color: #ccc;
+    }
+
+    .main.content {
+        flex: 1;
+        padding: 20px;
+        background-color: #fff;
+    }
+
+    .dashboard {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .dashboard .sidebar {
+        width: 100%;
+        background-color: #333;
+        padding: 20px;
+        color: #fff;
+    }
+
+    .dashboard .sidebar ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .dashboard .sidebar li {
+        margin-bottom: 10px;
+    }
+
+    .dashboard .sidebar a {
+        color: #fff;
+        text-decoration: none;
+    }
+
+    .dashboard .sidebar a:hover {
+        color: #ccc;
+    }
+
+    .dashboard .content {
+        flex: 1;
+        padding: 20px;
+        background-color: #fff;
+    }
+
+    .dashboard .content table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .dashboard .content th, .dashboard .content td {
+        border: 1px solid #ddd;
+        padding: 10px;
+        text-align: left;
+    }
+
+    .dashboard .content th {
+        background-color: #f0f0f0;
+    }
+
+    .dashboard .content td {
+        background-color: #fff;
+    }
+
+    .dashboard .content input[type="date"] {
+        width: 100%;
+        height: 30px;
+        padding: 10px;
+        font-size: 16px;
+        border: 1px solid #ccc;
+    }
+
+    .dashboard .content input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        margin: 10px;
+    }
+
+    .dashboard .content button[type="submit"] {
+        width: 100%;
+        height: 30px;
+        padding: 10px;
+        font-size: 16px;
+        background-color: #333;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+    }
+
+    .dashboard .content button[type="submit"]:hover {
+        background-color: #444;
     }
 }

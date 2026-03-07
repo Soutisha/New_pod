@@ -1,23 +1,22 @@
 **SYSTEM OVERVIEW**
 
-The e-commerce platform is a scalable and secure online marketplace that allows users to register, login, and manage their accounts, as well as view and track their orders. The platform is designed to integrate with third-party services and inventory management systems, ensuring seamless user experience and accurate inventory tracking. The platform is deployable to a cloud environment, allowing for easy management and scaling.
+The attendance management system is a web-based application designed to track student attendance and participation. It provides a secure login mechanism, role-based access control, and reporting features for faculty members. The system also supports mobile compatibility and REST API integration for extensibility.
 
 **COMPONENTS**
 
-* **Frontend**: The user-facing interface of the platform, responsible for rendering HTML and JavaScript code to the user's browser.
-* **Backend API**: The Flask REST API that handles requests from the frontend, interacts with the database, and provides authentication services.
-* **Database**: The SQLite database that stores user information, order history, and inventory data.
-* **Auth Service**: The authentication module that handles user registration, login, and password reset functionality.
-* **Inventory Management System**: The system that tracks and manages inventory levels, integrated with the e-commerce platform.
-* **Cloud Deployment**: The cloud environment (e.g. AWS, Azure, Google Cloud) that hosts the e-commerce platform, allowing for easy management and scaling.
+* **Frontend**: The user interface layer responsible for rendering the attendance management system's web pages and handling user interactions.
+* **Backend API**: The server-side API layer that exposes REST endpoints for attendance data, user authentication, and system configuration.
+* **Database**: The data storage layer that stores attendance records, user information, and system configuration data.
+* **Auth Service**: The authentication layer responsible for validating user credentials and managing user sessions.
+* **Reporting Engine**: The component responsible for generating attendance reports and analytics.
+* **Backup Service**: The component responsible for scheduling and storing data backups.
 
 ```mermaid
 flowchart TD
     User["User Browser"] --> Frontend["Frontend / HTML+JS"]
     Frontend --> API["Flask REST API"]
-    API --> DB["SQLite / Database"]
     API --> Auth["Auth Module"]
-    API --> Inventory["Inventory Management System"]
-    Inventory --> DB
-    DB --> Cloud["Cloud Deployment"]
+    API --> DB["SQLite / Database"]
+    API --> Reporting["Reporting Engine"]
+    API --> Backup["Backup Service"]
 ```

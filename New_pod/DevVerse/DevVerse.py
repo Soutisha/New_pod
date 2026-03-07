@@ -9,6 +9,8 @@ import time
 import os
 import re
 from pathlib import Path
+from crew_reportAgent import run_report_agent
+from scifi_hero import log_activity, mark_agent_done, render_hero
 
 # ============================================================
 # Page Configuration — MUST be first Streamlit call
@@ -41,6 +43,22 @@ from crew_designAgent import run_design_agent
 from crew_developerAgent import run_developer_agent, run_generated_project
 from crew_testerAgent import run_tester_agent
 
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+from io import BytesIO
+
+def generate_pdf(report_text):
+    buffer = BytesIO()
+    styles = getSampleStyleSheet()
+    story = []
+    for line in report_text.split("\n"):
+        story.append(Paragraph(line, styles["Normal"]))
+        story.append(Spacer(1, 8))
+    doc = SimpleDocTemplate(buffer)
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
 # ============================================================
 # Load Custom CSS
 # ============================================================
@@ -56,21 +74,24 @@ load_css("styleDevVerse.css")
 # Session State Initialization
 # ============================================================
 defaults = {
-    "pdf_text":           "",      # ← Store pdf_text so it survives rerun
-    "pdf_processed":      False,
+    "pdf_text":            "",
+    "pdf_processed":       False,
     "project_initialized": False,
-    "ba_completed":       False,
-    "design_completed":   False,
-    "dev_completed":      False,
-    "test_completed":     False,
-    "ba_text":            "",
-    "design_text":        "",
-    "dev_code":           "",
-    "test_cases":         "",
-    "ba_time":            0.0,
-    "design_time":        0.0,
-    "dev_time":           0.0,
-    "test_time":          0.0,
+    "ba_completed":        False,
+    "design_completed":    False,
+    "dev_completed":       False,
+    "test_completed":      False,
+    "report_completed":    False,
+    "ba_text":             "",
+    "design_text":         "",
+    "dev_code":            "",
+    "test_cases":          "",
+    "report_text":         "",
+    "report_time":         0.0,
+    "ba_time":             0.0,
+    "design_time":         0.0,
+    "dev_time":            0.0,
+    "test_time":           0.0,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -80,10 +101,11 @@ for k, v in defaults.items():
 # Helper — Agent Card HTML
 # ============================================================
 _ICON_COLORS = {
-    "ba":   "rgba(167,139,250,0.15)",
-    "des":  "rgba(56,189,248,0.15)",
-    "dev":  "rgba(52,211,153,0.15)",
-    "test": "rgba(251,146,60,0.15)",
+    "ba":     "rgba(167,139,250,0.15)",
+    "des":    "rgba(56,189,248,0.15)",
+    "dev":    "rgba(52,211,153,0.15)",
+    "test":   "rgba(251,146,60,0.15)",
+    "report": "rgba(244,114,182,0.15)",
 }
 
 def agent_card(icon: str, kind: str, title: str, subtitle: str, status: str, elapsed: float = 0.0) -> str:
@@ -113,28 +135,20 @@ def agent_card(icon: str, kind: str, title: str, subtitle: str, status: str, ela
 # ============================================================
 # Hero Section
 # ============================================================
-st.markdown("""
-<div class="dv-hero">
-    <div class="dv-badge">✦ AI-Powered Development</div>
-    <h1 class="dv-headline">
-        Your <span class="dv-gradient-text">Virtual Dev Pod</span><br>
-        Ships Code Autonomously
-    </h1>
-    <p class="dv-subtitle">
-        Upload your RFP and watch as AI agents — Business Analyst, Designer,
-        Developer &amp; Tester — collaborate to deliver production-ready software.
-    </p>
-</div>
-""", unsafe_allow_html=True)
+# render_hero() shows:
+#   → Full cinematic sci-fi hero  when project_initialized == False
+#   → Live agent activity terminal when project_initialized == True
+render_hero()
 
 # ============================================================
 # Pipeline Progress Bar
 # ============================================================
 steps = [
-    ("ba_completed",      "🧠", "Analyst"),
-    ("design_completed",  "🎨", "Designer"),
-    ("dev_completed",     "💻", "Developer"),
-    ("test_completed",    "🧪", "Tester"),
+    ("ba_completed",     "🧠", "Analyst"),
+    ("design_completed", "🎨", "Designer"),
+    ("dev_completed",    "💻", "Developer"),
+    ("test_completed",   "🧪", "Tester"),
+    ("report_completed", "📑", "Report"),
 ]
 
 def make_pipeline() -> str:
@@ -186,7 +200,7 @@ if uploaded_file:
         if not extracted.strip():
             st.error("❌  The PDF appears to be empty or unreadable.")
         else:
-            st.session_state.pdf_text = extracted          # ← persisted in session
+            st.session_state.pdf_text = extracted
             st.session_state.pdf_processed = True
             st.success("✅  PDF uploaded and parsed successfully")
     except Exception as e:
@@ -201,6 +215,10 @@ if st.session_state.pdf_processed and not st.session_state.project_initialized:
     with col_m:
         if st.button("🚀  Initialize Dev Pod", use_container_width=True):
             st.session_state.project_initialized = True
+            # ↓ Clear any leftover log from a previous run
+            st.session_state.dv_log     = []
+            st.session_state.dv_active  = None
+            st.session_state.dv_started = False
             st.rerun()
 
 # ============================================================
@@ -209,6 +227,10 @@ if st.session_state.pdf_processed and not st.session_state.project_initialized:
 
 # ── Step 1: Business Analyst ────────────────────────────────
 if st.session_state.project_initialized and not st.session_state.ba_completed:
+
+    # Push live messages to the hero activity feed
+    log_activity("ba", "Extracting requirements from RFP...")
+    log_activity("ba", "Generating user stories...")
 
     st.markdown(agent_card("🧠", "ba", "Business Analyst",
                            "Translating RFP into actionable user stories", "running"),
@@ -230,10 +252,13 @@ if st.session_state.project_initialized and not st.session_state.ba_completed:
             st.session_state.ba_time = round(time.time() - t0, 2)
             st.session_state.ba_text = ba_out
             st.session_state.ba_completed = True
+            mark_agent_done("ba")
+
         except Exception as e:
             st.error(f"Business Analyst Error: {e}")
             st.session_state.ba_text = f"Error: {e}"
-            st.session_state.ba_completed = True   # allow flow to continue
+            st.session_state.ba_completed = True
+            mark_agent_done("ba")
 
     st.rerun()
 
@@ -254,6 +279,10 @@ if st.session_state.ba_completed:
 # ── Step 2: Design Agent ────────────────────────────────────
 if st.session_state.ba_completed and not st.session_state.design_completed:
 
+    log_activity("design", "Analysing user stories and requirements...")
+    log_activity("design", "Building system architecture...")
+    log_activity("design", "Generating component diagrams...")
+
     st.markdown(agent_card("🎨", "des", "Design Agent",
                            "Creating system architecture & diagrams", "running"),
                 unsafe_allow_html=True)
@@ -265,10 +294,13 @@ if st.session_state.ba_completed and not st.session_state.design_completed:
             st.session_state.design_time = round(time.time() - t0, 2)
             st.session_state.design_text = design_out
             st.session_state.design_completed = True
+            mark_agent_done("design")
+
         except Exception as e:
             st.error(f"Design Agent Error: {e}")
             st.session_state.design_text = f"Error: {e}"
             st.session_state.design_completed = True
+            mark_agent_done("design")
 
     st.rerun()
 
@@ -313,6 +345,11 @@ if st.session_state.design_completed:
 # ── Step 3: Developer Agent ─────────────────────────────────
 if st.session_state.design_completed and not st.session_state.dev_completed:
 
+    log_activity("dev", "Scaffolding project structure...")
+    log_activity("dev", "Generating backend logic...")
+    log_activity("dev", "Building frontend UI components...")
+    log_activity("dev", "Wiring APIs and data models...")
+
     st.markdown(agent_card("💻", "dev", "Developer Agent",
                            "Writing full-stack production code", "running"),
                 unsafe_allow_html=True)
@@ -324,10 +361,13 @@ if st.session_state.design_completed and not st.session_state.dev_completed:
             st.session_state.dev_time = round(time.time() - t0, 2)
             st.session_state.dev_code = code_out
             st.session_state.dev_completed = True
+            mark_agent_done("dev")
+
         except Exception as e:
             st.error(f"Developer Agent Error: {e}")
             st.session_state.dev_code = f"Error: {e}"
-            st.session_state.dev_completed = True
+            st.session_state.dev_completed = False
+            mark_agent_done("dev")
 
     st.rerun()
 
@@ -345,6 +385,11 @@ if st.session_state.dev_completed:
 # ── Step 4: Tester Agent ────────────────────────────────────
 if st.session_state.dev_completed and not st.session_state.test_completed:
 
+    log_activity("test", "Analysing codebase for test coverage...")
+    log_activity("test", "Writing unit tests...")
+    log_activity("test", "Writing integration tests...")
+    log_activity("test", "Running QA validation checks...")
+
     st.markdown(agent_card("🧪", "test", "Tester Agent",
                            "Crafting unit tests, integration tests & QA coverage", "running"),
                 unsafe_allow_html=True)
@@ -356,10 +401,13 @@ if st.session_state.dev_completed and not st.session_state.test_completed:
             st.session_state.test_time = round(time.time() - t0, 2)
             st.session_state.test_cases = test_out
             st.session_state.test_completed = True
+            mark_agent_done("test")
+
         except Exception as e:
             st.error(f"Tester Agent Error: {e}")
             st.session_state.test_cases = f"Error: {e}"
             st.session_state.test_completed = True
+            mark_agent_done("test")
 
     st.rerun()
 
@@ -374,10 +422,64 @@ if st.session_state.test_completed:
         else:
             st.code(st.session_state.test_cases, language="python")
 
+# ── Step 5: Report Agent ─────────────────────────────────────
+if st.session_state.test_completed and not st.session_state.report_completed:
+
+    log_activity("report", "Compiling agent outputs...")
+    log_activity("report", "Structuring corporate documentation...")
+    log_activity("report", "Generating executive summary...")
+
+    st.markdown(agent_card(
+        "📑", "report", "Report Agent",
+        "Generating corporate project report", "running"
+    ), unsafe_allow_html=True)
+
+    with st.spinner("Report Agent working — generating corporate documentation..."):
+        try:
+            t0 = time.time()
+            report = run_report_agent()
+            st.session_state.report_time = round(time.time() - t0, 2)
+            st.session_state.report_text = report
+            st.session_state.report_completed = True
+            mark_agent_done("report")
+
+        except Exception as e:
+            st.error(f"Report Agent Error: {e}")
+            st.session_state.report_text = f"Error: {e}"
+            st.session_state.report_completed = True
+            mark_agent_done("report")
+
+    st.rerun()
+
+# ── Report Output ─────────────────────────────────────────────
+if st.session_state.report_completed:
+
+    st.markdown(agent_card(
+        "📑", "report", "Report Agent",
+        "Corporate project documentation generated", "done",
+        st.session_state.report_time
+    ), unsafe_allow_html=True)
+
+    with st.expander("📑 View Corporate Project Report", expanded=False):
+        if st.session_state.report_text.startswith("Error:"):
+            st.error(st.session_state.report_text)
+        else:
+            st.markdown(
+                f'<div class="dv-output-box">{st.session_state.report_text}</div>',
+                unsafe_allow_html=True
+            )
+            pdf_file = generate_pdf(st.session_state.report_text)
+            st.download_button(
+                label="📄 Download Project Report (PDF)",
+                data=pdf_file,
+                file_name="project_report.pdf",
+                mime="application/pdf"
+            )
+
 # ============================================================
 # View Generated Project CTA
 # ============================================================
-if st.session_state.dev_completed:
+if st.session_state.report_completed:
     st.markdown("<hr class='dv-divider'/>", unsafe_allow_html=True)
     st.markdown("""
     <div class="dv-cta-block">
@@ -411,11 +513,12 @@ with st.sidebar:
         return f'<div class="dv-sidebar-item {cls}"><span class="dv-sb-icon">{icon}</span> {tick} {label}</div>'
 
     st.markdown(
-        sidebar_item("RFP Uploaded",   "📄", st.session_state.pdf_processed)  +
-        sidebar_item("User Stories",   "🧠", st.session_state.ba_completed)    +
-        sidebar_item("System Design",  "🎨", st.session_state.design_completed)+
-        sidebar_item("Code Generated", "💻", st.session_state.dev_completed)   +
-        sidebar_item("Tests Written",  "🧪", st.session_state.test_completed),
+        sidebar_item("RFP Uploaded",   "📄", st.session_state.pdf_processed)   +
+        sidebar_item("User Stories",   "🧠", st.session_state.ba_completed)     +
+        sidebar_item("System Design",  "🎨", st.session_state.design_completed) +
+        sidebar_item("Code Generated", "💻", st.session_state.dev_completed)    +
+        sidebar_item("Tests Written",  "🧪", st.session_state.test_completed)   +
+        sidebar_item("Project Report", "📑", st.session_state.report_completed),
         unsafe_allow_html=True
     )
 
@@ -433,4 +536,8 @@ with st.sidebar:
     if st.button("↺  Reset Project", use_container_width=True):
         for k, v in defaults.items():
             st.session_state[k] = v
+        # Also clear the hero activity log on reset
+        st.session_state.dv_log     = []
+        st.session_state.dv_active  = None
+        st.session_state.dv_started = False
         st.rerun()

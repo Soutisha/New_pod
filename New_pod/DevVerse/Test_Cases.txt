@@ -1,11 +1,11 @@
 # test_app.py
+
 import pytest
 from app import app
 
 @pytest.fixture
 def client():
     app.config["TESTING"] = True
-    app.config["WTF_CSRF_ENABLED"] = False
     with app.test_client() as c:
         yield c
 
@@ -14,87 +14,77 @@ def test_index(client):
     assert response.status_code == 200
     assert response.content_type == 'text/html'
 
-def test_register(client):
+def test_register_get(client):
     response = client.get('/register')
     assert response.status_code == 200
     assert response.content_type == 'text/html'
 
-    data = {'username': 'testuser', 'password': 'testpassword'}
-    response = client.post('/register', data=data, follow_redirects=True)
-    assert response.status_code == 200
-    assert response.content_type == 'text/html'
-    assert b'Registration successful' in response.data
+def test_register_post(client):
+    response = client.post('/register', data={'username': 'testuser', 'password': 'testpassword'})
+    assert response.status_code == 302
+    assert response.location == 'http://localhost/login'
 
-def test_register_duplicate_username(client):
-    response = client.get('/register')
-    assert response.status_code == 200
-    assert response.content_type == 'text/html'
-
-    data = {'username': 'testuser', 'password': 'testpassword'}
-    client.post('/register', data=data, follow_redirects=True)
-    response = client.post('/register', data=data, follow_redirects=True)
-    assert response.status_code == 200
-    assert response.content_type == 'text/html'
-    assert b'Username already exists' in response.data
-
-def test_login(client):
+def test_login_get(client):
     response = client.get('/login')
     assert response.status_code == 200
     assert response.content_type == 'text/html'
 
-    data = {'username': 'testuser', 'password': 'testpassword'}
-    response = client.post('/login', data=data, follow_redirects=True)
-    assert response.status_code == 200
-    assert response.content_type == 'text/html'
-
-def test_login_invalid_credentials(client):
-    response = client.get('/login')
-    assert response.status_code == 200
-    assert response.content_type == 'text/html'
-
-    data = {'username': 'testuser', 'password': 'wrongpassword'}
-    response = client.post('/login', data=data, follow_redirects=True)
-    assert response.status_code == 200
-    assert response.content_type == 'text/html'
-    assert b'Invalid username or password' in response.data
+def test_login_post(client):
+    client.post('/register', data={'username': 'testuser', 'password': 'testpassword'})
+    response = client.post('/login', data={'username': 'testuser', 'password': 'testpassword'})
+    assert response.status_code == 302
+    assert response.location == 'http://localhost/dashboard'
 
 def test_dashboard(client):
-    client.post('/login', data={'username': 'testuser', 'password': 'testpassword'}, follow_redirects=True)
+    client.post('/register', data={'username': 'testuser', 'password': 'testpassword'})
+    client.post('/login', data={'username': 'testuser', 'password': 'testpassword'})
     response = client.get('/dashboard')
     assert response.status_code == 200
     assert response.content_type == 'text/html'
 
-def test_orders(client):
-    client.post('/login', data={'username': 'testuser', 'password': 'testpassword'}, follow_redirects=True)
-    response = client.get('/orders')
-    assert response.status_code == 200
-    assert response.content_type == 'text/html'
-
-def test_products(client):
-    client.post('/login', data={'username': 'testuser', 'password': 'testpassword'}, follow_redirects=True)
-    response = client.get('/products')
-    assert response.status_code == 200
-    assert response.content_type == 'text/html'
-
-def test_add_product(client):
-    client.post('/login', data={'username': 'testuser', 'password': 'testpassword'}, follow_redirects=True)
-    response = client.post('/add_product', data={'name': 'Test Product', 'price': '10.99'}, follow_redirects=True)
-    assert response.status_code == 200
-    assert response.content_type == 'text/html'
-
-def test_add_order(client):
-    client.post('/login', data={'username': 'testuser', 'password': 'testpassword'}, follow_redirects=True)
-    response = client.post('/add_order', data={'product_id': '1'}, follow_redirects=True)
-    assert response.status_code == 200
-    assert response.content_type == 'text/html'
-
 def test_logout(client):
-    client.post('/login', data={'username': 'testuser', 'password': 'testpassword'}, follow_redirects=True)
-    response = client.get('/logout', follow_redirects=True)
-    assert response.status_code == 200
-    assert response.content_type == 'text/html'
+    client.post('/register', data={'username': 'testuser', 'password': 'testpassword'})
+    client.post('/login', data={'username': 'testuser', 'password': 'testpassword'})
+    response = client.get('/logout')
+    assert response.status_code == 302
+    assert response.location == 'http://localhost/'
+
+def test_attendance(client):
+    client.post('/register', data={'username': 'testuser', 'password': 'testpassword'})
+    client.post('/login', data={'username': 'testuser', 'password': 'testpassword'})
+    response = client.post('/attendance', data={'date': '2022-01-01', 'attended': 'true'})
+    assert response.status_code == 302
+    assert response.location == 'http://localhost/dashboard'
+
+def test_attendance_invalid_date(client):
+    client.post('/register', data={'username': 'testuser', 'password': 'testpassword'})
+    client.post('/login', data={'username': 'testuser', 'password': 'testpassword'})
+    response = client.post('/attendance', data={'date': 'invalid-date', 'attended': 'true'})
+    assert response.status_code == 302
+    assert response.location == 'http://localhost/dashboard'
+
+def test_attendance_invalid_attended(client):
+    client.post('/register', data={'username': 'testuser', 'password': 'testpassword'})
+    client.post('/login', data={'username': 'testuser', 'password': 'testpassword'})
+    response = client.post('/attendance', data={'date': '2022-01-01', 'attended': 'invalid'})
+    assert response.status_code == 302
+    assert response.location == 'http://localhost/dashboard'
 
 def test_404(client):
     response = client.get('/non-existent-route')
     assert response.status_code == 404
     assert response.content_type == 'text/html'
+
+def test_empty_register(client):
+    response = client.post('/register', data={'username': '', 'password': ''})
+    assert response.status_code == 200
+    assert response.content_type == 'text/html'
+    assert 'Username cannot be empty' in response.data.decode('utf-8')
+    assert 'Password cannot be empty' in response.data.decode('utf-8')
+
+def test_empty_login(client):
+    response = client.post('/login', data={'username': '', 'password': ''})
+    assert response.status_code == 200
+    assert response.content_type == 'text/html'
+    assert 'Username cannot be empty' in response.data.decode('utf-8')
+    assert 'Password cannot be empty' in response.data.decode('utf-8')

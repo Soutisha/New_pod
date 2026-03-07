@@ -11,6 +11,9 @@ import re
 import sys
 import subprocess
 import textwrap
+from openai import OpenAI
+from dotenv import load_dotenv
+import shutil
 
 # ── Environment ────────────────────────────────────────────
 project_root = Path(__file__).parent.absolute()
@@ -37,6 +40,14 @@ if GROQ_API_KEY and not GROQ_API_KEY.startswith("your_"):
         max_tokens=4096,
     )
 
+# load_dotenv()
+
+# DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+
+# client = OpenAI(
+#     api_key=DEEPSEEK_API_KEY,
+#     base_url="https://api.deepseek.com"
+# )
 # ── Public API ──────────────────────────────────────────────
 
 def run_developer_agent() -> str:
@@ -48,6 +59,8 @@ def run_developer_agent() -> str:
     """
     if not llm:
         raise RuntimeError("GROQ_API_KEY not set. Get a free key at https://console.groq.com/keys")
+    # if not DEEPSEEK_API_KEY:
+    #     raise RuntimeError("DEEPSEEK_API_KEY not set.")
 
     design_file = project_root / "System_Design.txt"
     if not design_file.exists():
@@ -160,10 +173,30 @@ def run_developer_agent() -> str:
     response = llm.invoke(prompt)
     dev_text = response.content if hasattr(response, "content") else str(response)
 
-    # Save raw output
+    # response = client.chat.completions.create(
+    #     model="deepseek-chat",
+    #     messages=[
+    #         {"role": "user", "content": prompt}
+    #     ],
+    #     temperature=0.4,
+    #     max_tokens=4096
+    # )
+
+    # if not response.choices or not response.choices[0].message.content:
+    #     raise RuntimeError("LLM returned empty response")
+
+    # dev_text = response.choices[0].message.content
+
+    # # Save raw output
     (project_root / "Implementation_Code.txt").write_text(dev_text, encoding="utf-8")
 
-    # Write project files
+    # # Write project files
+    # _write_project_files(dev_text)
+    proj_dir = project_root / "generated_project"
+
+    if proj_dir.exists():
+        shutil.rmtree(proj_dir)
+
     _write_project_files(dev_text)
 
     return dev_text
