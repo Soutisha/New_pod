@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Original Shop | Curated Collection</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="shop-header">
+        <a href="/" class="shop-brand">ORIGINAL.</a>
+        
+        <div class="search-bar">
+            <input type="text" placeholder="Explore our collection...">
+        </div>
+
+        <nav class="shop-nav-links">
+            <a href="{{ url_for('dashboard') }}">Shop</a>
+            <a href="#">Support</a>
+            <a href="{{ url_for('logout') }}" style="color: #FF3B30;">Sign Out</a>
+            <div style="width: 32px; height: 32px; background: #eee; border-radius: 99px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px;">
+                {{ current_user.username[:1].upper() }}
+            </div>
+        </nav>
+    </header>
+
+    <div class="shop-shell">
+        <aside class="shop-sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Categories</h3>
+                <a class="filter-item">New Arrivals</a>
+                <a class="filter-item">Laptops & Computing</a>
+                <a class="filter-item">Smart Devices</a>
+                <a class="filter-item">Audio Elite</a>
+                <a class="filter-item">Accessories</a>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Elite Filters</h3>
+                <a class="filter-item">Platinum Selection</a>
+                <a class="filter-item">Flash Sales</a>
+                <a class="filter-item">In Stock Only</a>
+            </div>
+        </aside>
+
+        <main class="shop-content">
+            <header style="margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-end;">
+                <div>
+                    <h2 style="font-size: 28px; font-weight: 900; letter-spacing: -1px;">All Collections</h2>
+                    <p style="color: #717171; font-size: 14px;">Showing {{ products|length }} premium results for your refined taste.</p>
+                </div>
+                <select style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; font-weight: 600;">
+                    <option>Sort by: Featured</option>
+                    <option>Price: Low to High</option>
+                    <option>Price: High to Low</option>
+                </select>
+            </header>
+
+            <div class="product-grid">
+                {% for product in products %}
+                <a class="product-item">
+                    <div class="product-img-box">
+                        <span style="font-size: 40px;">📦</span>
+                    </div>
+                    <h3 class="product-name">{{ product.name }}</h3>
+                    <p class="product-meta">Precision Series Gen 2</p>
+                    <p class="product-price">${{ "%.2f"|format(product.price) }}</p>
+                    <button class="btn-black" style="padding: 10px; font-size: 12px; margin-top: 16px;">Add to Bag</button>
+                </a>
+                {% endfor %}
+            </div>
+        </main>
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="toast">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+</body>
+</html>
