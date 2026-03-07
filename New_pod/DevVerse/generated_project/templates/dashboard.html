@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Dashboard</h1>
+    <p>This is the dashboard page of the platform</p>
+    <p>Username: {{ current_user.username }}</p>
+    <p>Orders: {{ current_user.orders.count() }}</p>
+</body>
+</html>

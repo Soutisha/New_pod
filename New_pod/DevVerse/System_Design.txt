@@ -1,0 +1,23 @@
+**SYSTEM OVERVIEW**
+
+The e-commerce platform is a scalable and secure online marketplace that allows users to register, login, and manage their accounts, as well as view and track their orders. The platform is designed to integrate with third-party services and inventory management systems, ensuring seamless user experience and accurate inventory tracking. The platform is deployable to a cloud environment, allowing for easy management and scaling.
+
+**COMPONENTS**
+
+* **Frontend**: The user-facing interface of the platform, responsible for rendering HTML and JavaScript code to the user's browser.
+* **Backend API**: The Flask REST API that handles requests from the frontend, interacts with the database, and provides authentication services.
+* **Database**: The SQLite database that stores user information, order history, and inventory data.
+* **Auth Service**: The authentication module that handles user registration, login, and password reset functionality.
+* **Inventory Management System**: The system that tracks and manages inventory levels, integrated with the e-commerce platform.
+* **Cloud Deployment**: The cloud environment (e.g. AWS, Azure, Google Cloud) that hosts the e-commerce platform, allowing for easy management and scaling.
+
+```mermaid
+flowchart TD
+    User["User Browser"] --> Frontend["Frontend / HTML+JS"]
+    Frontend --> API["Flask REST API"]
+    API --> DB["SQLite / Database"]
+    API --> Auth["Auth Module"]
+    API --> Inventory["Inventory Management System"]
+    Inventory --> DB
+    DB --> Cloud["Cloud Deployment"]
+```

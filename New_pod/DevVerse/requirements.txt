@@ -1,0 +1,42 @@
+# DevVerse - AI-Powered Virtual Development Pod
+# Requirements.txt
+
+# Core Streamlit
+streamlit
+streamlit-chat
+
+# CrewAI (Agent Framework)
+crewai
+crewai[litellm]
+
+# LangChain (LLM Framework)
+langchain
+langchain-core
+
+# LiteLLM (for Ollama/local LLM support)
+litellm
+
+# Groq (free, fast LLM API - no local setup needed)
+langchain-groq
+
+# Google GenAI
+google-generativeai
+langchain-google-genai
+
+# Vector Database
+chromadb
+sentence-transformers
+
+# NLP - spacy is optional, will work with fallback
+# Install separately if needed: pip install spacy && python -m spacy download en_core_web_sm
+
+# PDF
+PyPDF2
+
+# Utils
+python-dotenv
+
+# ML/NLP
+scikit-learn
+nltk
+

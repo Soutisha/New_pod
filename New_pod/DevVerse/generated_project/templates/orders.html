@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Orders</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Orders</h1>
+    <table>
+        <tr>
+            <th>Order ID</th>
+            <th>Product ID</th>
+        </tr>
+        {% for order in orders %}
+        <tr>
+            <td>{{ order.id }}</td>
+            <td>{{ order.product_id }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
