@@ -40,3 +40,4 @@ python-dotenv
 scikit-learn
 nltk
 
+reportlab
