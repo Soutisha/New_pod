@@ -1,3 +1,38 @@
-__pycache__
-*.pyc
-generated_project
+# DevVerse .gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# API keys
+.env
+
+# ChromaDB vector store (regenerated on run)
+chroma_db/
+
+# Agent output files (regenerated)
+outputs/
+
+# Generated project (rebuilt by Developer Agent)
+generated_project/
+
+# Logs
+*.log
+flask_error.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp

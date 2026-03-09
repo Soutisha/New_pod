@@ -1,182 +1,179 @@
 """
-DevVerse — Chatbot Page
-Premium AI chat interface for project status queries.
+DevVerse — Chatbot Page (RAG-powered).
+─────────────────────────────────────────────────────────────────────────
+The PM Lead chatbot answers project questions using Retrieval-Augmented
+Generation (ChromaDB + LangChain + Groq) — NO direct LLM calls.
+
+Every user message is filtered by SHAP Responsible AI before querying RAG,
+and every bot response is filtered before displaying.
 """
 
 import streamlit as st
-import os
 from pathlib import Path
+import sys
 
-# ── Page config ────────────────────────────────────────────
+# ── Page configuration ────────────────────────────────────────────────
 st.set_page_config(page_title="DevVerse Chat", page_icon="💬", layout="wide")
 
-# ── CSS ────────────────────────────────────────────────────
-css_path = Path(__file__).parent.parent / "styleDevVerse.css"
+# ── Ensure project root is importable ────────────────────────────────
+_parent = str(Path(__file__).parent.parent.absolute())
+if _parent not in sys.path:
+    sys.path.insert(0, _parent)
+
+# ── Load CSS ──────────────────────────────────────────────────────────
+css_path = Path(__file__).parent.parent / "frontend" / "styleDevVerse.css"
+if not css_path.exists():
+    css_path = Path(__file__).parent.parent / "styleDevVerse.css"
 if css_path.exists():
-    st.markdown(f"<style>{css_path.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
+    st.markdown(
+        f"<style>{css_path.read_text(encoding='utf-8')}</style>",
+        unsafe_allow_html=True,
+    )
 
-# ── Gemini API setup ────────────────────────────────────────
-genai = None
-USE_NEW = None
-try:
-    import google.genai as genai
-    USE_NEW = True
-except ImportError:
-    try:
-        import google.generativeai as genai   # type: ignore
-        USE_NEW = False
-    except ImportError:
-        pass
+# ── RAG + Responsible AI imports ─────────────────────────────────────
+from core.rag_engine import rag_query, refresh_knowledge_base          # noqa: E402
+from core.responsible_ai import filter_input, filter_output, explain_with_shap  # noqa: E402
 
-from dotenv import load_dotenv
-load_dotenv()
-api_key = os.getenv("GEMINI_API_KEY", "")
-if genai and api_key:
-    genai.configure(api_key=api_key)
+# Reuse the already-warmed RAG stack from the main app (caching is global)
+@st.cache_resource(show_spinner=False)
+def _ensure_rag_ready():
+    from core.rag_engine import build_vector_store, _get_embeddings, _get_llm
+    _get_embeddings(); _get_llm(); build_vector_store()
+    return True
 
-# ── Project context ─────────────────────────────────────────
-from project_status import project_status   # type: ignore
+_ensure_rag_ready()
 
-base_dir = Path(__file__).parent.parent
-req_file = base_dir / "extracted_reqmts.txt"
-stories_file = base_dir / "User_Stories.txt"
-design_file = base_dir / "System_Design.txt"
-code_file = base_dir / "Implementation_Code.txt"
-test_file = base_dir / "Test_Cases.txt"
-
-def _read_file(path: Path) -> str:
-    return path.read_text(encoding="utf-8") if path.exists() else "(Not generated yet)"
-
-reqmts_text = _read_file(req_file)
-stories_text = _read_file(stories_file)
-design_text = _read_file(design_file)
-code_text = _read_file(code_file)
-test_text = _read_file(test_file)
-
-def _format_status(status: dict) -> str:
-    return "\n".join([
-        f"- Requirements Extracted: {status.get('requirements_extracted', 0)}",
-        f"- User Stories: {status.get('user_stories_generated', 0)}",
-        f"- Design Document: {'Yes' if status.get('design_document_generated') else 'No'}",
-        f"- Code Generated: {'Yes' if status.get('code_generated') else 'No'}",
-        f"- Test Cases: {'Yes' if status.get('test_cases_generated') else 'No'}",
-    ])
-
-# ── Session state ────────────────────────────────────────────
+# ── Session state ─────────────────────────────────────────────────────
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# ── Hero ─────────────────────────────────────────────────────
+# ── Hero header ───────────────────────────────────────────────────────
 st.markdown("""
 <div class="dv-hero" style="padding:2.5rem 1rem 1.5rem;">
-    <div class="dv-badge">👔 Project Manager Lead</div>
+    <div class="dv-badge">👔 Project Manager Lead — RAG Chatbot</div>
     <h1 class="dv-headline" style="font-size:2.1rem !important;">
         Consult the <span class="dv-gradient-text">PM Lead</span>
     </h1>
     <p class="dv-subtitle" style="font-size:0.95rem !important;">
-        Chat with the AI Project Manager to review artifact quality, check status, or validate architecture.
+        All answers are powered by Retrieval-Augmented Generation (ChromaDB + Groq).
+        SHAP Responsible AI filters are active on every message.
     </p>
 </div>
 <hr class="dv-divider"/>
 """, unsafe_allow_html=True)
 
-# ── Display chat history ────────────────────────────────────
+# ── Suggested prompts ─────────────────────────────────────────────────
+SUGGESTED = [
+    "What are the user stories?",
+    "Explain the system architecture",
+    "What tests were written?",
+    "Summarise the project report",
+    "What technology stack is used?",
+]
+
 if not st.session_state.chat_history:
     st.markdown("""
-    <div style="text-align:center; padding:3rem 0; color:#94A3B8;">
+    <div style="text-align:center; padding:2rem 0; color:#94A3B8;">
         <div style="font-size:3rem; margin-bottom:0.75rem;">👔</div>
         <p style="font-size:0.93rem; color:#64748B;">
-            I am the Project Manager Lead. Ask me to quickly review the generated code, evaluate the user stories, or check on progress.
+            I am the Project Manager Lead. Ask me about the generated code,
+            user stories, architecture, or test coverage.<br/>
+            <span style="color:#a78bfa; font-size:0.8rem;">
+                🔒 Powered by RAG &nbsp;|&nbsp; 🛡️ SHAP Responsible AI Active
+            </span>
         </p>
     </div>
     """, unsafe_allow_html=True)
 
-for speaker, msg in st.session_state.chat_history:
+    st.markdown("**💡 Suggested questions:**")
+    cols = st.columns(len(SUGGESTED))
+    for col, q in zip(cols, SUGGESTED):
+        with col:
+            if st.button(q, use_container_width=True, key=f"suggest_{q[:20]}"):
+                st.session_state._suggested_q = q
+                st.rerun()
+
+# Handle suggested question
+if hasattr(st.session_state, "_suggested_q"):
+    user_input = st.session_state._suggested_q
+    del st.session_state._suggested_q
+else:
+    user_input = None
+
+# ── Display chat history ────────────────────────────────────────────
+for speaker, msg, shap_score in st.session_state.chat_history:
     if speaker == "You":
         st.markdown(
             f'<div class="dv-chat-user"><div class="dv-bubble">{msg}</div></div>',
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
     else:
+        badge = ""
+        if shap_score is not None and shap_score > 0.0:
+            badge = (
+                f'<span style="font-size:0.7rem; color:#94A3B8; margin-left:8px;">'
+                f'🛡️ SHAP: {shap_score:.3f}</span>'
+            )
         st.markdown(
-            f'<div class="dv-chat-bot"><div class="dv-bubble">{msg}</div></div>',
-            unsafe_allow_html=True
+            f'<div class="dv-chat-bot"><div class="dv-bubble">{msg}{badge}</div></div>',
+            unsafe_allow_html=True,
         )
 
-# ── Input ────────────────────────────────────────────────────
-user_input = st.chat_input("Ask the Project Manager…")
+# ── Chat input ────────────────────────────────────────────────────────
+chat_input = st.chat_input("Ask the PM Lead…")
+if chat_input:
+    user_input = chat_input
 
 if user_input:
-    st.session_state.chat_history.append(("You", user_input))
+    # ── Input SHAP filter ─────────────────────────────────────────
+    safe_input, input_blocked, input_score = filter_input(user_input, stage="Chatbot_Input")
 
-    prompt = (
-        "You are the Project Manager Lead for this DevVerse AI development pod.\n"
-        "You are the overall owner of the development process. Your job is to deeply understand, "
-        "analyze, and answer any questions about the project's generated artifacts (requirements, design, code, tests).\n\n"
-        "Here is the current state of the project artifacts:\n\n"
-        f"--- 1. RAW REQUIREMENTS ---\n{reqmts_text[:500]}...\n\n"
-        f"--- 2. USER STORIES ---\n{stories_text[:1000]}...\n\n"
-        f"--- 3. SYSTEM DESIGN ---\n{design_text[:1000]}...\n\n"
-        f"--- 4. IMPLEMENTATION CODE ---\n{code_text[:2000]}...\n\n"
-        f"--- 5. TEST CASES ---\n{test_text[:1000]}...\n\n"
-        f"--- OVERALL STATUS ---\n{_format_status(project_status)}\n\n"
-        f'User question: "{user_input}"\n\n'
-        "Answer confidently, thoroughly, and highly specifically based on the context above. If asked about the code, mention specific routes or models. If asked about user stories, reference them. Act as the ultimate project owner."
-    )
+    st.session_state.chat_history.append(("You", user_input, None))
 
-    with st.spinner("Thinking..."):
-        import requests
-        import os
-        from langchain_groq import ChatGroq
-
-        OLLAMA_API = "http://localhost:11434/api/generate"
-        payload = {
-            "model": "llama3.1",
-            "prompt": prompt,
-            "stream": False
-        }
-
-        bot_response = ""
-        try:
-            # First, try to query local Ollama
-            response = requests.post(OLLAMA_API, json=payload, timeout=5)
-            response.raise_for_status()
-            bot_response = response.json().get("response", "No response generated.")
-            bot_response = "*(Analyzed via Local Ollama)*\n\n" + bot_response
-
-        except requests.exceptions.ConnectionError:
-            # Fallback to Groq API if Ollama is offline
+    if input_blocked:
+        bot_reply    = safe_input
+        output_score = 1.0
+    else:
+        with st.spinner("🔍 Searching knowledge base…"):
             try:
-                api_key = os.getenv("GROQ_API_KEY")
-                if not api_key or api_key.startswith("your_"):
-                    bot_response = (
-                        "⚠️ **Could not connect to local Ollama, and no Cloud Fallback found.**\n\n"
-                        "Please either run `ollama run llama3.1` in your terminal, OR add a valid `GROQ_API_KEY` to your `.env` file."
-                    )
-                else:
-                    llm = ChatGroq(
-                        model="llama-3.1-8b-instant",
-                        temperature=0.3,
-                        api_key=api_key
-                    )
-                    cloud_response = llm.invoke(prompt)
-                    res_content = cloud_response.content if hasattr(cloud_response, "content") else str(cloud_response)
-                    bot_response = "*(Analyzed via Cloud Fallback)*\n\n" + res_content
-            except Exception as e:
-                bot_response = f"⚠️ Cloud Fallback failed: {e}"
+                system_role = (
+                    "You are the Project Manager Lead for the DevVerse AI development pod. "
+                    "You own the full development process and answer questions about the "
+                    "project's requirements, design, code, and tests — using only the "
+                    "retrieved context from the knowledge base. Be specific and thorough."
+                )
+                raw_answer = rag_query(
+                    question=safe_input,
+                    system_role=system_role,
+                    k=5,
+                )
+                bot_reply, output_blocked, output_score = filter_output(
+                    raw_answer, stage="Chatbot_Output"
+                )
+            except Exception as exc:
+                bot_reply    = f"⚠️ RAG error: {exc}"
+                output_score = 0.0
 
-        except Exception as exc:
-            err_msg = str(exc).lower()
-            if "not found" in err_msg:
-                bot_response = "⚠️ **Model Not Found:** Please run `ollama run llama3.1` to download the local model."
-            else:
-                bot_response = f"Sorry, an unexpected error occurred: {exc}"
-
-    st.session_state.chat_history.append(("Bot", bot_response))
+    st.session_state.chat_history.append(("Bot", bot_reply, output_score))
     st.rerun()
 
-# ── Clear button ────────────────────────────────────────────
-if st.session_state.chat_history:
-    if st.button("🗑️  Clear Chat"):
-        st.session_state.chat_history = []
-        st.rerun()
+# ── Sidebar ───────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("### 🛠️ Knowledge Base")
+    if st.button("🔄 Refresh KB from latest docs", use_container_width=True):
+        with st.spinner("Rebuilding ChromaDB knowledge base…"):
+            try:
+                refresh_knowledge_base()
+                st.success("✅ Knowledge base refreshed!")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+    st.markdown("---")
+    st.markdown("**🛡️ Responsible AI**")
+    st.caption("SHAP toxicity filters are active on every message.")
+
+    if st.session_state.chat_history:
+        st.markdown("---")
+        if st.button("🗑️ Clear Chat", use_container_width=True):
+            st.session_state.chat_history = []
+            st.rerun()

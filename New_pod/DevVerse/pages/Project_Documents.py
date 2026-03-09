@@ -1,16 +1,24 @@
 """
-DevVerse — Project Documents Page
+DevVerse — Project Documents Page.
 Clean document browser with download cards.
 """
 
 import streamlit as st
 from pathlib import Path
+import sys
 
 # ── Page config ────────────────────────────────────────────
 st.set_page_config(page_title="DevVerse — Documents", page_icon="📁", layout="wide")
 
+# ── Ensure project root importable ──────────────────────────
+_parent = str(Path(__file__).parent.parent.absolute())
+if _parent not in sys.path:
+    sys.path.insert(0, _parent)
+
 # ── CSS ────────────────────────────────────────────────────
-css_path = Path(__file__).parent.parent / "styleDevVerse.css"
+css_path = Path(__file__).parent.parent / "frontend" / "styleDevVerse.css"
+if not css_path.exists():
+    css_path = Path(__file__).parent.parent / "styleDevVerse.css"
 if css_path.exists():
     st.markdown(f"<style>{css_path.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
 
@@ -29,15 +37,21 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Helpers ──────────────────────────────────────────────────
-base_dir = Path(__file__).parent.parent
+base_dir    = Path(__file__).parent.parent
+outputs_dir = base_dir / "outputs"
 
-def _read(path: Path) -> str | None:
-    if not path.exists():
-        return None
-    try:
-        return path.read_text(encoding="utf-8")
-    except Exception as exc:
-        return f"Error reading file: {exc}"
+
+def _read(fname: str) -> str | None:
+    """Read from outputs/ first, fall back to project root."""
+    for directory in [outputs_dir, base_dir]:
+        p = directory / fname
+        if p.exists():
+            try:
+                return p.read_text(encoding="utf-8")
+            except Exception as exc:
+                return f"Error reading file: {exc}"
+    return None
+
 
 def render_doc_card(icon: str, title: str, desc: str,
                     content: str | None, filename: str, lang: str = "text") -> None:
@@ -76,7 +90,7 @@ def render_doc_card(icon: str, title: str, desc: str,
         _, btn_col = st.columns([3, 1])
         with btn_col:
             st.download_button(
-                label=f"⬇️  Download",
+                label="⬇️  Download",
                 data=content,
                 file_name=filename,
                 mime="text/plain",
@@ -87,44 +101,46 @@ def render_doc_card(icon: str, title: str, desc: str,
 
     st.markdown("<div style='height:0.25rem'></div>", unsafe_allow_html=True)
 
-# ── Load all documents ────────────────────────────────────────
-ba_content     = _read(base_dir / "User_Stories.txt")
-design_content = _read(base_dir / "System_Design.txt")
-code_content   = _read(base_dir / "Implementation_Code.txt")
-test_content   = _read(base_dir / "Test_Cases.txt")
 
-has_any = any(x is not None for x in [ba_content, design_content, code_content, test_content])
+# ── Load all documents ────────────────────────────────────────
+ba_content     = _read("User_Stories.txt")
+design_content = _read("System_Design.txt")
+code_content   = _read("Implementation_Code.txt")
+test_content   = _read("Test_Cases.txt")
+report_content = _read("Project_Report.txt")
+
+all_docs = [ba_content, design_content, code_content, test_content, report_content]
+has_any  = any(x is not None for x in all_docs)
 
 if not has_any:
     st.markdown("""
     <div style="text-align:center; padding:4rem 0;">
         <div style="font-size:4rem; margin-bottom:1rem;">📂</div>
-        <h3 style="font-family:'Inter',sans-serif; font-weight:700; color:#0F172A;">
-            No Documents Yet
-        </h3>
+        <h3 style="font-weight:700; color:#e8f4ff;">No Documents Yet</h3>
         <p style="color:#64748B; font-size:0.95rem; max-width:400px; margin:0 auto;">
             Run the Dev Pod from the main page to generate user stories,
-            architecture, code, and test cases.
+            architecture, code, test cases, and the project report.
         </p>
     </div>
     """, unsafe_allow_html=True)
 else:
-    # Stats bar
-    count = sum(1 for x in [ba_content, design_content, code_content, test_content] if x)
+    count      = sum(1 for x in all_docs if x)
     code_words = len(code_content.split()) if code_content else 0
+    test_lines = len(test_content.splitlines()) if test_content else 0
+
     st.markdown(f"""
     <div style="display:flex; gap:1rem; margin-bottom:2rem; flex-wrap:wrap;">
-        <div style="background:#F0F4FA; border:1px solid #E2E8F0; border-radius:14px;
-                    padding:1rem 1.5rem; text-align:center; min-width:130px;">
-            <div style="font-size:1.7rem; font-weight:800; color:#5B57D1;">{count}/4</div>
-            <div style="font-size:0.72rem; color:#64748B; font-weight:600;
-                        text-transform:uppercase; letter-spacing:.06em;">Ready</div>
+        <div class="dv-agent-card" style="min-width:130px; text-align:center; padding:1rem 1.5rem;">
+            <div style="font-size:1.7rem; font-weight:800; color:#a78bfa;">{count}/5</div>
+            <div style="font-size:0.72rem; color:#3d5475; text-transform:uppercase; letter-spacing:.06em;">Ready</div>
         </div>
-        <div style="background:#F0FAF7; border:1px solid #D1FAE5; border-radius:14px;
-                    padding:1rem 1.5rem; text-align:center; min-width:130px;">
-            <div style="font-size:1.7rem; font-weight:800; color:#10B981;">{code_words:,}</div>
-            <div style="font-size:0.72rem; color:#64748B; font-weight:600;
-                        text-transform:uppercase; letter-spacing:.06em;">Code Tokens</div>
+        <div class="dv-agent-card" style="min-width:130px; text-align:center; padding:1rem 1.5rem;">
+            <div style="font-size:1.7rem; font-weight:800; color:#34d399;">{code_words:,}</div>
+            <div style="font-size:0.72rem; color:#3d5475; text-transform:uppercase; letter-spacing:.06em;">Code Tokens</div>
+        </div>
+        <div class="dv-agent-card" style="min-width:130px; text-align:center; padding:1rem 1.5rem;">
+            <div style="font-size:1.7rem; font-weight:800; color:#fb923c;">{test_lines:,}</div>
+            <div style="font-size:0.72rem; color:#3d5475; text-transform:uppercase; letter-spacing:.06em;">Test Lines</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -141,6 +157,10 @@ else:
                     "Full-stack codebase from the Developer agent",
                     code_content, "Implementation_Code.txt", lang="python")
 
-    render_doc_card("🧪", "Test Cases",
-                    "pytest test suite from the Tester agent",
+    render_doc_card("🧪", "Test Cases (7-Category Suite)",
+                    "Ultra-comprehensive pytest suite from the Tester agent",
                     test_content, "Test_Cases.txt", lang="python")
+
+    render_doc_card("📑", "Corporate Project Report",
+                    "10-section executive report from the Report agent",
+                    report_content, "Project_Report.txt")

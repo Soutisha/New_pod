@@ -1,0 +1,54 @@
+# DevVerse — Docker Compose
+# ─────────────────────────────────────────────────────────────
+# Orchestrates two containers:
+#   1. devverse    — Main Streamlit app (port 8501)
+#   2. sandbox     — Generated Flask app preview (port 5000)
+#
+# Usage:
+#   docker-compose up --build
+#   docker-compose down
+# ─────────────────────────────────────────────────────────────
+
+version: "3.9"
+
+services:
+
+  # ── Main DevVerse Application ──────────────────────────────
+  devverse:
+    build: .
+    container_name: devverse-app
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    environment:
+      - CREWAI_DISABLE_TELEMETRY=true
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+    volumes:
+      - ./outputs:/app/outputs
+      - ./generated_project:/app/generated_project
+      - ./chroma_db:/app/chroma_db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── Sandbox Container for Generated App ────────────────────
+  sandbox:
+    build:
+      context: ./generated_project
+      dockerfile: Dockerfile
+    container_name: devverse-sandbox-app
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    depends_on:
+      devverse:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5

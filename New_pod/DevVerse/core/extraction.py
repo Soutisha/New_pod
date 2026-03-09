@@ -1,5 +1,6 @@
 """
-PDF Text Extraction and Requirement Analysis Module
+PDF Text Extraction and Requirement Analysis Module.
+─────────────────────────────────────────────────────
 """
 import re
 from collections import defaultdict
@@ -12,17 +13,15 @@ def _get_tfidf_vectorizer():
     global _tfidf_vectorizer
     if _tfidf_vectorizer is not None:
         return _tfidf_vectorizer
-    
     try:
         from sklearn.feature_extraction.text import TfidfVectorizer
         _tfidf_vectorizer = TfidfVectorizer()
     except ImportError as e:
         print(f"⚠️  Could not load TF-IDF: {e}")
         _tfidf_vectorizer = None
-    
     return _tfidf_vectorizer
 
-# Try to import spacy, fallback to simple sentence splitting if not available
+# Try to import spacy, fallback to simple sentence splitting
 SPACY_AVAILABLE = False
 try:
     import spacy
@@ -40,56 +39,56 @@ try:
     except LookupError:
         try:
             nltk.download('punkt', quiet=True)
-        except:
+        except Exception:
             pass
     try:
         nltk.data.find('tokenizers/punkt_tab')
     except LookupError:
         try:
             nltk.download('punkt_tab', quiet=True)
-        except:
+        except Exception:
             pass
 except ImportError:
     pass
 
-#Preprocess full text
+
 def preprocess_text(text):
+    """Preprocess full text."""
     if not text:
         return ""
     text = re.sub(r'\s+', ' ', text)
     text = re.sub(r'[^\w\s.,;:()\-\'\"]+', '', text)
     return text
 
-#Clean individual requirement
+
 def clean_requirement(req):
+    """Clean individual requirement."""
     cleaned = re.sub(r'^\s*[\•\-\*\○\◦\▪\▫\□\◆\◇\■\#\d+\.\)]+\s*', '', req)
     return cleaned.strip()
 
-# Identify business requirements
+
 def identify_requirements(text):
+    """Identify business requirements from text."""
     nlp = None
-    
     if SPACY_AVAILABLE:
         try:
             nlp = spacy.load("en_core_web_sm")
         except OSError:
             nlp = None
-    
-    # If spacy not available, use simple sentence tokenization
+
     if nlp is None:
         if NLTK_AVAILABLE:
             try:
                 from nltk import sent_tokenize
                 sentences = sent_tokenize(text)
-            except:
+            except Exception:
                 sentences = re.split(r'(?<=[.!?])\s+', text)
         else:
-            # Simple fallback - split by common sentence endings
             sentences = re.split(r'(?<=[.!?])\s+', text)
     else:
         doc = nlp(text)
         sentences = [sent.text.strip() for sent in doc.sents]
-    
+
     requirements = []
 
     req_patterns = [
@@ -101,7 +100,7 @@ def identify_requirements(text):
         r"(?i)(?:integration|implementation) (?:of|with) .{10,200}?[.?!]",
         r"(?i)(?:is|are) (?:required|necessary|needed|essential) .{10,200}?[.?!]",
         r"(?i)(?:should be|must be|shall be) .{10,200}?[.?!]",
-        r"(?i)(?:development of|creation of|provision of) .{10,200}?[.?!]"
+        r"(?i)(?:development of|creation of|provision of) .{10,200}?[.?!]",
     ]
 
     for pattern in req_patterns:
@@ -115,14 +114,14 @@ def identify_requirements(text):
         "provide", "support", "enable", "allow", "implement", "maintain",
         "ensure", "deliver", "comply", "include", "integrate", "offer",
         "manage", "process", "handle", "deploy", "develop", "design",
-        "create", "build", "configure", "secure", "optimize", "establish"
+        "create", "build", "configure", "secure", "optimize", "establish",
     ]
 
     key_contexts = [
         "system", "solution", "product", "website", "application", "platform",
         "vendor", "e-commerce", "commerce", "online", "portal",
         "database", "user", "customer", "interface", "payment", "security",
-        "feature", "functionality", "service", "component", "module", "design"
+        "feature", "functionality", "service", "component", "module", "design",
     ]
 
     for sent_text in sentences:
@@ -144,17 +143,14 @@ def identify_requirements(text):
 
     return requirements
 
-#Vectorize requirements using TF-IDF
+
 def vectorize_requirements(requirements):
+    """Vectorize requirements using TF-IDF."""
     if not requirements:
         return []
-    
     vectorizer = _get_tfidf_vectorizer()
-    
     if vectorizer is None:
-        # Return empty array if vectorizer not available
         return []
-    
     try:
         processed_reqs = [re.sub(r'[^\w\s]', '', req.lower()) for req in requirements]
         vectors = vectorizer.fit_transform(processed_reqs).toarray()
@@ -163,11 +159,10 @@ def vectorize_requirements(requirements):
         print(f"⚠️  Error vectorizing requirements: {e}")
         return []
 
-#Wrapper function for Streamlit
+
 def process_pdf_text(text):
+    """Wrapper function for Streamlit."""
     processed_text = preprocess_text(text)
     requirements = identify_requirements(processed_text)
     tfidf_vectors = vectorize_requirements(requirements) if requirements else []
-
     return requirements, tfidf_vectors
-

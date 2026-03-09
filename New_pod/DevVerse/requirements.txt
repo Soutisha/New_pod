@@ -1,43 +1,56 @@
 # DevVerse - AI-Powered Virtual Development Pod
-# Requirements.txt
+# Requirements — RAG + CrewAI + SHAP Responsible AI edition
 
-# Core Streamlit
+# ── Core Streamlit ──────────────────────────────────────────────────────
 streamlit
-streamlit-chat
+streamlit-mermaid
 
-# CrewAI (Agent Framework)
+# ── CrewAI (Master Agent Orchestrator) ─────────────────────────────────
+# Docs: https://docs.crewai.com/
 crewai
-crewai[litellm]
+crewai[tools]
 
-# LangChain (LLM Framework)
+# ── LangChain (RAG Framework) ──────────────────────────────────────────
+# Docs: https://python.langchain.com/docs/use_cases/question_answering/
 langchain
 langchain-core
-
-# LiteLLM (for Ollama/local LLM support)
-litellm
-
-# Groq (free, fast LLM API - no local setup needed)
+langchain-community
+langchain-text-splitters
 langchain-groq
 
-# Google GenAI
-google-generativeai
-langchain-google-genai
-
-# Vector Database
+# ── ChromaDB (Vector Store for RAG) ───────────────────────────────────
+# Docs: https://docs.trychroma.com/
 chromadb
+langchain-chroma
+
+# ── Embeddings (free, local, no API needed) ────────────────────────────
 sentence-transformers
+langchain-huggingface
 
-# NLP - spacy is optional, will work with fallback
-# Install separately if needed: pip install spacy && python -m spacy download en_core_web_sm
+# ── Groq LLM API (fast, free tier available) ───────────────────────────
+# Get key: https://console.groq.com/keys
+# Docs:    https://console.groq.com/docs/openai
+groq
 
-# PDF
+# ── SHAP (Responsible AI — explainability & toxicity filtering) ────────
+# Docs: https://shap.readthedocs.io/en/latest/
+shap
+
+# ── HuggingFace Transformers (toxic-bert classifier for SHAP) ─────────
+# Model:  https://huggingface.co/unitary/toxic-bert
+transformers
+torch
+
+# ── PDF processing ─────────────────────────────────────────────────────
 PyPDF2
 
-# Utils
+# ── Environment variable management ───────────────────────────────────
 python-dotenv
 
-# ML/NLP
+# ── ML / NLP utilities ─────────────────────────────────────────────────
 scikit-learn
 nltk
+numpy
 
+# ── Report generation ──────────────────────────────────────────────────
 reportlab
