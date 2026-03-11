@@ -1,0 +1,12 @@
+[
+  {
+    "from": "arch_102",
+    "to": "code_102",
+    "relation": "implemented_by"
+  },
+  {
+    "from": "arch_2f27fc790e0c436b85c700d9ddd9a2a2",
+    "to": "code_32c4a0ff25db46eaacf6468830adf114",
+    "relation": "implemented_by"
+  }
+]

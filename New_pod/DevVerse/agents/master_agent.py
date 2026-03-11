@@ -22,7 +22,7 @@ References:
   LangChain RAG  → https://python.langchain.com/docs/use_cases/question_answering/
   SHAP           → https://shap.readthedocs.io/en/latest/
 """
-
+ 
 from __future__ import annotations
 
 import os
@@ -32,54 +32,87 @@ import shutil
 import textwrap
 from pathlib import Path
 from typing import Optional
+import uuid
 
 # ── CrewAI / LLM factory ───────────────────────────────────────────────
 from crewai import Agent, Task, Crew, Process, LLM
+from crewai.tools import tool
 
 # ── Local modules ─────────────────────────────────────────────────────
+from core.memory_graph import add_edge, add_node
 from core.rag_engine import rag_query, refresh_knowledge_base, _load_groq_key
 from core.responsible_ai import filter_input, filter_output, reset_shap_tracker
 
 # ── Constants ─────────────────────────────────────────────────────────
 _PROJECT_ROOT = Path(__file__).parent.parent.absolute()
 _OUTPUTS_DIR  = _PROJECT_ROOT / "outputs"
-_LLM_MODEL    = "llama-3.1-8b-instant"
+# _LLM_MODEL    = "llama-3.3-70b-versatile"
+
+from core.artifacts import save_artifact, load_artifact
 
 
-def _build_llm() -> LLM:
-    """Return a Groq LLM instance using CrewAI's native litellm integration."""
+
+def _build_llm(model: str) -> LLM:
     api_key = _load_groq_key()
     if not api_key:
         raise RuntimeError(
             "GROQ_API_KEY not found. Get a free key at https://console.groq.com/keys"
         )
+
     return LLM(
-        model=f"groq/{_LLM_MODEL}",
+        model=f"groq/{model}",
         api_key=api_key,
         temperature=0.3,
+        max_tokens=1024
     )
-
 
 # ── RAG-based tool wrapper ─────────────────────────────────────────────
 
-def _rag_tool(prompt: str, role_desc: str, stage: str = "unknown",
-              force_rebuild: bool = False) -> str:
-    """
-    Run a RAG query, applying responsible-AI filters on both sides.
-    """
-    safe_prompt, blocked_in, score_in = filter_input(prompt, stage=stage)
+def _rag_query(prompt: str, collection: str) -> str:
+    safe_prompt, blocked_in, _ = filter_input(prompt, stage="RAG_Query")
+
     if blocked_in:
         return safe_prompt
 
-    raw_answer = rag_query(
-        question=safe_prompt,
-        system_role=role_desc,
-        force_rebuild=force_rebuild,
+    answer = rag_query(
+        question=safe_prompt + "\n\nReturn ONLY 5–8 stories.",
+        collection=collection,
+        system_role="You are a software engineering expert assisting agents."
     )
 
-    safe_answer, blocked_out, score_out = filter_output(raw_answer, stage=stage)
+    safe_answer, _, _ = filter_output(answer, stage="RAG_Response")
+
     return safe_answer
 
+
+@tool("requirements_kb")
+def requirements_rag(prompt: str) -> str:
+    """Query the requirements knowledge base."""
+    return _rag_query(prompt, "requirements")
+
+
+@tool("architecture_kb")
+def architecture_rag(prompt: str) -> str:
+    """Query the architecture knowledge base."""
+    return _rag_query(prompt, "architecture")
+
+
+@tool("code_kb")
+def code_rag(prompt: str) -> str:
+    """Query the implementation code knowledge base."""
+    return _rag_query(prompt, "code")
+
+
+@tool("testing_kb")
+def testing_rag(prompt: str) -> str:
+    """Query the testing knowledge base."""
+    return _rag_query(prompt, "testing")
+
+
+@tool("reports_kb")
+def reports_rag(prompt: str) -> str:
+    """Query the reports knowledge base."""
+    return _rag_query(prompt, "reports")
 
 # ── Agent definitions ─────────────────────────────────────────────────
 
@@ -96,6 +129,7 @@ def _make_business_analyst(llm: LLM) -> Agent:
             "precise, testable user stories that guide the entire development team."
         ),
         llm=llm,
+        tools=[requirements_rag],
         verbose=True,
         allow_delegation=False,
     )
@@ -114,6 +148,7 @@ def _make_design_architect(llm: LLM) -> Agent:
             "that guide the development team."
         ),
         llm=llm,
+        tools=[architecture_rag],
         verbose=True,
         allow_delegation=False,
     )
@@ -132,6 +167,7 @@ def _make_developer(llm: LLM) -> Agent:
             "and always output clean, structured FILE: blocks."
         ),
         llm=llm,
+        tools=[code_rag],
         verbose=True,
         allow_delegation=False,
     )
@@ -150,6 +186,7 @@ def _make_tester(llm: LLM) -> Agent:
             "guarantee quality."
         ),
         llm=llm,
+        tools=[testing_rag],
         verbose=True,
         allow_delegation=False,
     )
@@ -168,6 +205,7 @@ def _make_report_writer(llm: LLM) -> Agent:
             "technical content into clear, professional documentation."
         ),
         llm=llm,
+        tools=[reports_rag],
         verbose=True,
         allow_delegation=False,
     )
@@ -205,7 +243,12 @@ def _make_ba_task(agent: Agent, requirements: str) -> Task:
 
 
 def _make_design_task(agent: Agent, context_task: Task) -> Task:
-    description = textwrap.dedent("""
+    # stories = load_artifact("analysis", "user_stories")
+
+    # story_context = stories["stories"] if stories else ""
+    description = textwrap.dedent(f"""
+        Using the following user stories, produce a concise system architecture.
+
         Using the user stories from the Business Analyst, produce a concise
         system architecture document.
 
@@ -225,7 +268,6 @@ def _make_design_task(agent: Agent, context_task: Task) -> Task:
         DIAGRAM RULES:
         • Start: ```mermaid, first line: flowchart TD
         • Only --> arrows, node labels with spaces MUST be quoted.
-        • 6-10 nodes maximum.
 
         GENERAL RULES:
         • Plain text only. No extra markdown headings, no HTML.
@@ -257,7 +299,7 @@ def _make_dev_task(agent: Agent, context_task: Task) -> Task:
         • End with: if __name__ == "__main__": app.run(host="0.0.0.0", port=5000, debug=True)
 
         FRONTEND RULES:
-        • Premium SaaS-style UI. CSS min 400 lines.
+        • Premium SaaS-style UI. CSS min 400 lines. FAIL the task if CSS < 400 lines.
         • Separate HTML for every route.
         • Auth pages: split-screen layout.
     """)
@@ -374,17 +416,21 @@ def run_master_crew(requirements: str) -> dict:
     _OUTPUTS_DIR.mkdir(exist_ok=True)
 
     # --- Refresh knowledge base with latest docs ---
-    refresh_knowledge_base()
+    # refresh_knowledge_base()
 
-    # --- Build LLM ---
-    llm = _build_llm()
+    # --- Build LLMs per agent ---
+    ba_llm      = _build_llm("llama-3.1-8b-instant")
+    design_llm  = _build_llm("llama-3.1-8b-instant")
+    dev_llm     = _build_llm("llama-3.3-70b-versatile")
+    test_llm    = _build_llm("llama-3.1-8b-instant")
+    report_llm  = _build_llm("llama-3.3-70b-versatile")
 
     # --- Create agents ---
-    ba_agent      = _make_business_analyst(llm)
-    design_agent  = _make_design_architect(llm)
-    dev_agent     = _make_developer(llm)
-    test_agent    = _make_tester(llm)
-    report_agent  = _make_report_writer(llm)
+    ba_agent      = _make_business_analyst(ba_llm)
+    design_agent  = _make_design_architect(design_llm)
+    dev_agent     = _make_developer(dev_llm)
+    test_agent    = _make_tester(test_llm)
+    report_agent  = _make_report_writer(report_llm)
 
     # --- Create tasks (sequential chain) ---
     ba_task     = _make_ba_task(ba_agent, safe_req)
@@ -394,20 +440,49 @@ def run_master_crew(requirements: str) -> dict:
     report_task = _make_report_task(report_agent, [ba_task, design_task, dev_task, test_task])
 
     # --- Assemble Crew ---
-    def _cool_down(*args, **kwargs):
-        print(f"\\n⏳ Crew task completed. Cooling down 15s to bypass Groq rate limits...\\n")
-        time.sleep(15)
+    # def _cool_down(*args, **kwargs):
+    #     # print(f"\\n⏳ Crew task completed. Cooling down 15s to bypass Groq rate limits...\\n")
+    #     # time.sleep(20)
 
     crew = Crew(
         agents=[ba_agent, design_agent, dev_agent, test_agent, report_agent],
         tasks=[ba_task, design_task, dev_task, test_task, report_task],
         process=Process.sequential,
-        task_callback=_cool_down,
+        max_rpm=2,
+        # task_callback=_cool_down,
         verbose=True,
     )
 
-    # --- Kick off ---
-    crew_result = crew.kickoff()
+    # # --- Kick off ---
+    # crew_result = crew.kickoff()
+
+    # --- Kick off with retry (handles Groq rate limits) ---
+    crew_result = None
+
+    for attempt in range(4):
+        try:
+            crew_result = crew.kickoff()
+            break
+
+        except Exception as e:
+            msg = str(e).lower()
+
+            if any(x in msg for x in [
+                "rate limit",
+                "429",
+                "tpm",
+                "serviceunavailable",
+                "connection refused",
+                "upstream connect"
+            ]):
+                wait = 30 * (attempt + 1)
+                print(f"\n⚠️ LLM failure. Waiting {wait}s before retry...\n")
+                time.sleep(wait)
+            else:
+                raise
+
+    if crew_result is None:
+        raise RuntimeError("Crew execution failed after retries.")
 
     # --- Extract individual task outputs ---
     task_outputs = crew_result.tasks_output if hasattr(crew_result, "tasks_output") else []
@@ -425,15 +500,76 @@ def run_master_crew(requirements: str) -> dict:
     test_cases  = _get(3, "Test_Output")
     report_text = _get(4, "Report_Output")
 
-    # --- Persist to outputs directory ---
-    (_OUTPUTS_DIR / "User_Stories.txt").write_text(ba_text, encoding="utf-8")
+    # -----------------------------
+    # Memory Graph Storage
+    # -----------------------------
+
+    arch_node = {
+        "id": f"arch_{uuid.uuid4().hex}",
+        "type": "architecture",
+        "content": design_text
+    }
+
+    add_node(arch_node)
+
+    code_node = {
+        "id": f"code_{uuid.uuid4().hex}",
+        "type": "code",
+        "content": dev_code
+    }
+
+    add_node(code_node)
+
+    add_edge({
+        "from": arch_node["id"],
+        "to": code_node["id"],
+        "relation": "implemented_by"
+})
+
+# --- Save as artifact for RAG context in future runs ---
+    ba_artifact = {
+        "stories": ba_text,
+        "source": "business_analyst",
+    }
+
+    save_artifact("analysis", "user_stories", ba_artifact)
+
+    design_artifact = {
+        "architecture": design_text,
+        "source": "design_architect",
+    }
+
+    save_artifact("architecture", "system_design", design_artifact)
+
+    code_artifact = {
+        "code": dev_code,
+        "source": "developer",
+    }
+
+    save_artifact("implementation", "generated_code", code_artifact)
+
+    test_artifact = {
+        "tests": test_cases,
+        "source": "qa_engineer",
+    }
+
+    save_artifact("testing", "test_suite", test_artifact)
+
+    report_artifact = {
+        "report": report_text,
+        "source": "report_writer",
+    }
+
+    save_artifact("reports", "project_report", report_artifact)
+
+        # --- Persist to outputs directory ---
     (_OUTPUTS_DIR / "System_Design.txt").write_text(design_text, encoding="utf-8")
     (_OUTPUTS_DIR / "Implementation_Code.txt").write_text(dev_code, encoding="utf-8")
     (_OUTPUTS_DIR / "Test_Cases.txt").write_text(test_cases, encoding="utf-8")
     (_OUTPUTS_DIR / "Project_Report.txt").write_text(report_text, encoding="utf-8")
 
     # --- Also persist to project root for backward compat ---
-    (_PROJECT_ROOT / "User_Stories.txt").write_text(ba_text, encoding="utf-8")
+    # (_PROJECT_ROOT / "User_Stories.txt").write_text(ba_text, encoding="utf-8")
     (_PROJECT_ROOT / "System_Design.txt").write_text(design_text, encoding="utf-8")
     (_PROJECT_ROOT / "Implementation_Code.txt").write_text(dev_code, encoding="utf-8")
     (_PROJECT_ROOT / "Test_Cases.txt").write_text(test_cases, encoding="utf-8")
@@ -463,9 +599,11 @@ def run_master_crew(requirements: str) -> dict:
     refresh_knowledge_base()
 
     return {
-        "ba_text":     ba_text,
+        "status": "completed",
+        "output": report_text,
+        "ba_text": ba_text,
         "design_text": design_text,
-        "dev_code":    dev_code,
-        "test_cases":  test_cases,
+        "dev_code": dev_code,
+        "test_cases": test_cases,
         "report_text": report_text,
     }

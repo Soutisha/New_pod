@@ -1,0 +1,29 @@
+SYSTEM OVERVIEW
+The attendance management system is a web-based application designed to securely track student attendance, provide role-based access control, and ensure data integrity and security. The system is accessible from desktop and mobile devices, with automated attendance tracking and notifications for students. The system also has a reliable data backup schedule and complies with data security regulations.
+
+COMPONENTS
+• Frontend / HTML+JS: Handles user interactions and displays attendance records.
+• Flask REST API: Provides a secure interface for data exchange between the frontend and database.
+• SQLite / Database: Stores attendance records and user information.
+• Auth Module: Manages user authentication and role-based access control.
+• Attendance Tracker: Automatically tracks student attendance and generates reports.
+• Notification System: Sends notifications to students when they miss a class.
+• Data Backup System: Regularly backs up attendance records and user information.
+• Deployment Guide: Provides instructions for deploying the system.
+
+```mermaid
+flowchart TD
+    User["User Browser"] --> Frontend["Frontend / HTML+JS"]
+    Frontend --> API["Flask REST API"]
+    API --> DB["SQLite / Database"]
+    API --> Auth["Auth Module"]
+    Auth -->|secured| API
+    Frontend -->|attendance| AttendanceTracker["Attendance Tracker"]
+    AttendanceTracker -->|reports| API
+    API -->|notifications| NotificationSystem["Notification System"]
+    NotificationSystem -->|email| User
+    API -->|backup| DataBackupSystem["Data Backup System"]
+    DataBackupSystem -->|backup| DB
+    Frontend -->|deployment| DeploymentGuide["Deployment Guide"]
+    DeploymentGuide -->|docs| User
+```

@@ -70,16 +70,22 @@ from reportlab.lib.styles import getSampleStyleSheet                   # noqa: E
 from io import BytesIO                                                 # noqa: E402
 
 # ── Cache heavy resources — loaded ONCE, reused across all reruns ─────
-@st.cache_resource(show_spinner="⏳ Loading AI models (one-time setup)…")
+@st.cache_resource
 def _warmup_rag():
-    """
-    Pre-load embeddings + vectorstore + LLM into RAM on first run.
-    Subsequent Streamlit reruns reuse these cached instances instantly.
-    """
-    from core.rag_engine import build_vector_store, _get_embeddings, _get_llm
-    _get_embeddings()         # Load MiniLM embeddings model into RAM
-    _get_llm()                # Create Groq client
-    build_vector_store()      # Load / build ChromaDB
+    from core.rag_engine import (
+        build_vector_store,
+        _get_embeddings,
+        _get_llm,
+        _COLLECTIONS
+    )
+
+    _get_embeddings()
+    _get_llm()
+
+    # Load all vector DB collections into cache
+    for collection in _COLLECTIONS.values():
+        build_vector_store(collection_name=collection)
+
     return True
 
 _warmup_rag()   # Runs once; all subsequent reruns return cached result instantly
