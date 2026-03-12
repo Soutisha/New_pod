@@ -43,6 +43,9 @@ from core.memory_graph import add_edge, add_node
 from core.rag_engine import rag_query, refresh_knowledge_base, _load_groq_key
 from core.responsible_ai import filter_input, filter_output, reset_shap_tracker
 
+#----AWS S3 bucket -----
+from core.s3_storage import upload_file, upload_text, download_text, list_files
+
 # ── Constants ─────────────────────────────────────────────────────────
 _PROJECT_ROOT = Path(__file__).parent.parent.absolute()
 _OUTPUTS_DIR  = _PROJECT_ROOT / "outputs"
@@ -420,7 +423,7 @@ def run_master_crew(requirements: str) -> dict:
 
     # --- Build LLMs per agent ---
     ba_llm      = _build_llm("llama-3.1-8b-instant")
-    design_llm  = _build_llm("llama-3.1-8b-instant")
+    design_llm  = _build_llm("llama-3.3-70b-versatile")
     dev_llm     = _build_llm("llama-3.3-70b-versatile")
     test_llm    = _build_llm("llama-3.1-8b-instant")
     report_llm  = _build_llm("llama-3.3-70b-versatile")
@@ -563,10 +566,31 @@ def run_master_crew(requirements: str) -> dict:
     save_artifact("reports", "project_report", report_artifact)
 
         # --- Persist to outputs directory ---
-    (_OUTPUTS_DIR / "System_Design.txt").write_text(design_text, encoding="utf-8")
-    (_OUTPUTS_DIR / "Implementation_Code.txt").write_text(dev_code, encoding="utf-8")
-    (_OUTPUTS_DIR / "Test_Cases.txt").write_text(test_cases, encoding="utf-8")
-    (_OUTPUTS_DIR / "Project_Report.txt").write_text(report_text, encoding="utf-8")
+    # (_OUTPUTS_DIR / "System_Design.txt").write_text(design_text, encoding="utf-8")
+    # (_OUTPUTS_DIR / "Implementation_Code.txt").write_text(dev_code, encoding="utf-8")
+    # (_OUTPUTS_DIR / "Test_Cases.txt").write_text(test_cases, encoding="utf-8")
+    # (_OUTPUTS_DIR / "Project_Report.txt").write_text(report_text, encoding="utf-8")
+
+    #------aws s3 storage for persistence across runs and RAG context------
+    # ---- SYSTEM DESIGN ----
+    path = _OUTPUTS_DIR / "System_Design.txt"
+    path.write_text(design_text, encoding="utf-8")
+    upload_text(design_text, "artifacts/System_Design.txt")
+
+    # ---- IMPLEMENTATION CODE ----
+    path = _OUTPUTS_DIR / "Implementation_Code.txt"
+    path.write_text(dev_code, encoding="utf-8")
+    upload_text(dev_code, "artifacts/Implementation_Code.txt")
+
+    # ---- TEST CASES ----
+    path = _OUTPUTS_DIR / "Test_Cases.txt"
+    path.write_text(test_cases, encoding="utf-8")
+    upload_text(test_cases, "artifacts/Test_Cases.txt")
+
+    # ---- PROJECT REPORT ----
+    path = _OUTPUTS_DIR / "Project_Report.txt"
+    path.write_text(report_text, encoding="utf-8")
+    upload_text(report_text, "artifacts/Project_Report.txt")
 
     # --- Also persist to project root for backward compat ---
     # (_PROJECT_ROOT / "User_Stories.txt").write_text(ba_text, encoding="utf-8")

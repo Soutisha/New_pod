@@ -16,9 +16,9 @@ def client(test_app):
     return test_app.test_client()
 
 try:
-    from app import User, Attendance
+    from app import Attendance
 except ImportError:
-    pass
+    pytest.skip("Attendance model not found")
 
 def test_smoke(client):
     """Test app creation, 404 check, home page loads"""
@@ -26,91 +26,104 @@ def test_smoke(client):
     assert response.status_code == 200
     response = client.get("/login")
     assert response.status_code == 200
+    response = client.get("/products")
+    assert response.status_code == 200
     response = client.get("/dashboard")
     assert response.status_code == 200
-    response = client.get("/attendance")
+    response = client.get("/logout")
+    assert response.status_code == 302
+    response = client.get("/add_product")
     assert response.status_code == 200
-    response = client.get("/notifications")
-    assert response.status_code == 200
-    response = client.get("/backup")
-    assert response.status_code == 200
-    response = client.get("/mark_attendance")
-    assert response.status_code == 405
+
+def test_unit_login(client):
+    """Test login route"""
     response = client.get("/login")
     assert response.status_code == 200
+    response = client.post("/login", data={"username": "test", "password": "test"})
+    assert response.status_code == 302
 
-@pytest.mark.parametrize("route", ["/login", "/register", "/dashboard", "/attendance", "/notifications", "/backup"])
-def test_unit_get(route, client):
-    """Test GET requests for all routes"""
-    response = client.get(route)
+def test_unit_products(client):
+    """Test products route"""
+    response = client.get("/products")
     assert response.status_code == 200
 
-@pytest.mark.parametrize("route", ["/login", "/register", "/dashboard", "/attendance", "/notifications", "/backup"])
-def test_unit_post(route, client):
-    """Test POST requests for all routes"""
-    response = client.post(route)
-    assert response.status_code == 405
+def test_unit_add_product(client):
+    """Test add product route"""
+    response = client.get("/add_product")
+    assert response.status_code == 200
+    response = client.post("/add_product", data={"name": "test", "price": 10})
+    assert response.status_code == 302
+
+def test_unit_dashboard(client):
+    """Test dashboard route"""
+    response = client.get("/dashboard")
+    assert response.status_code == 200
+
+def test_unit_logout(client):
+    """Test logout route"""
+    response = client.get("/logout")
+    assert response.status_code == 302
 
 def test_auth_integration(client):
-    """Test register→login→logout full flow"""
-    # Register
-    response = client.post("/register", data={"username": "test_user", "email": "test@example.com", "password": "password"})
+    """Test register, login, logout flow"""
+    response = client.post("/add_product", data={"name": "test", "price": 10})
     assert response.status_code == 302
-    # Login
-    response = client.post("/login", data={"username": "test_user", "password": "password"})
+    response = client.get("/login")
+    assert response.status_code == 200
+    response = client.post("/login", data={"username": "test", "password": "test"})
     assert response.status_code == 302
-    # Logout (not implemented)
-    pass
-
-def test_auth_invalid_creds(client):
-    """Test invalid credentials rejected"""
-    response = client.post("/login", data={"username": "test_user", "password": "wrong_password"})
-    assert response.status_code == 200
-
-try:
-    def test_database(client):
-        """Test table creation, model CRUD, uniqueness constraints"""
-        # Create user
-        user = User(username="test_user", email="test@example.com", password="password")
-        db.session.add(user)
-        db.session.commit()
-        assert User.query.filter_by(username="test_user").first() is not None
-        # Create attendance
-        attendance = Attendance(user_id=1, attendance_date="2022-01-01", status="present")
-        db.session.add(attendance)
-        db.session.commit()
-        assert Attendance.query.filter_by(user_id=1).first() is not None
-        # Update attendance
-        attendance.status = "absent"
-        db.session.commit()
-        assert Attendance.query.filter_by(user_id=1).first().status == "absent"
-        # Delete user
-        db.session.delete(user)
-        db.session.commit()
-        assert User.query.filter_by(username="test_user").first() is None
-except ImportError:
-    pass
-
-def test_edge_cases_security(client):
-    """Test SQL injection attempt, XSS in input, empty fields, very long input (10000 chars), missing fields"""
-    # SQL injection attempt
-    response = client.post("/login", data={"username": "test_user", "password": " OR 1=1"})
-    assert response.status_code == 200
-    # XSS in input
-    response = client.post("/register", data={"username": "<script>alert('XSS')</script>", "email": "test@example.com", "password": "password"})
+    response = client.get("/logout")
     assert response.status_code == 302
-    # Empty fields
-    response = client.post("/register", data={"username": "", "email": "", "password": ""})
-    assert response.status_code == 200
-    # Very long input (10000 chars)
-    response = client.post("/register", data={"username": "a" * 10000, "email": "test@example.com", "password": "password"})
-    assert response.status_code == 200
-    # Missing fields
-    response = client.post("/register", data={"username": "test_user", "password": "password"})
+
+def test_auth_invalid_credentials(client):
+    """Test invalid credentials"""
+    response = client.post("/login", data={"username": "test", "password": "wrong"})
     assert response.status_code == 200
 
-def test_performance(client):
-    """Test home and login load in < 3 seconds"""
-    start_time = time.time()
-    client.get("/")
-    assert time.time()
+def test_database(client):
+    """Test table creation and model CRUD"""
+    attendance = Attendance(name="test", date="2022-01-01", status="present")
+    db.session.add(attendance)
+    db.session.commit()
+    assert Attendance.query.count() == 1
+    attendance = Attendance.query.first()
+    assert attendance.name == "test"
+    assert attendance.date == "2022-01-01"
+    assert attendance.status == "present"
+    db.session.delete(attendance)
+    db.session.commit()
+    assert Attendance.query.count() == 0
+
+def test_database_uniqueness(client):
+    """Test uniqueness constraints"""
+    attendance1 = Attendance(name="test", date="2022-01-01", status="present")
+    db.session.add(attendance1)
+    db.session.commit()
+    attendance2 = Attendance(name="test", date="2022-01-01", status="present")
+    db.session.add(attendance2)
+    with pytest.raises(db.IntegrityError):
+        db.session.commit()
+
+def test_edge_cases_sql_injection(client):
+    """Test SQL injection attempt"""
+    response = client.get("/dashboard?name=<script>alert('test')</script>")
+    assert response.status_code == 200
+
+def test_edge_cases_xss_input(client):
+    """Test XSS in input"""
+    response = client.post("/add_product", data={"name": "<script>alert('test')</script>", "price": 10})
+    assert response.status_code == 302
+
+def test_edge_cases_empty_fields(client):
+    """Test empty fields"""
+    response = client.post("/add_product", data={"name": "", "price": 10})
+    assert response.status_code == 302
+
+def test_edge_cases_long_input(client):
+    """Test very long input (10000 chars)"""
+    response = client.post("/add_product", data={"name": "a" * 10000, "price": 10})
+    assert response.status_code == 302
+
+def test_edge_cases_missing_fields(client):
+    """Test missing fields"""
+    response = client.post("/add

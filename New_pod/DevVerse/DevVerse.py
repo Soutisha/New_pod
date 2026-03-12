@@ -79,12 +79,15 @@ def _warmup_rag():
         _COLLECTIONS
     )
 
+    os.environ["DEVVERSE_WARMUP"] = "1"   # 👈 add
+
     _get_embeddings()
     _get_llm()
 
-    # Load all vector DB collections into cache
     for collection in _COLLECTIONS.values():
         build_vector_store(collection_name=collection)
+
+    os.environ.pop("DEVVERSE_WARMUP", None)   # 👈 remove after
 
     return True
 

@@ -28,7 +28,8 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough, RunnableParallel, RunnableLambda
+from langchain_core.runnables import RunnableLambda, RunnablePassthrough, RunnableParallel
+from core.s3_storage import list_files, download_text
  
 # ── Constants ─────────────────────────────────────────────────────────
 _PROJECT_ROOT = Path(__file__).parent.parent.absolute()
@@ -230,6 +231,48 @@ def _load_documents(collection: str) -> List[Document]:
 
                 except Exception as e:
                     print(f"⚠ KB load error: {e}")
+
+    # -----------------------------
+    # 4️⃣ Load artifacts from S3
+    # -----------------------------
+
+    # Skip S3 calls during warmup
+    if os.getenv("DEVVERSE_WARMUP") == "1":
+        return docs
+
+    try:
+
+        s3_prefix = "artifacts/"
+        keys = list_files(s3_prefix)
+
+        for key in keys:
+
+            # Only load artifacts relevant to this collection
+            if collection not in key.lower():
+                continue
+
+            try:
+                content = download_text(key)
+
+                if not content.strip():
+                    continue
+
+                docs.extend(
+                    splitter.create_documents(
+                        [content],
+                        metadatas=[{
+                            "source": "s3_artifact",
+                            "key": key,
+                            "domain": collection
+                        }]
+                    )
+                )
+
+            except Exception as e:
+                print(f"S3 read error for {key}: {e}")
+
+    except Exception as e:
+        print("⚠ S3 artifact load failed:", e)
 
     return docs
 

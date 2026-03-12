@@ -54,3 +54,4 @@ numpy
 
 # ── Report generation ──────────────────────────────────────────────────
 reportlab
+boto3

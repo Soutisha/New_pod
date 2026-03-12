@@ -38,7 +38,11 @@ from core.responsible_ai import filter_input, filter_output, explain_with_shap  
 @st.cache_resource(show_spinner=False)
 def _ensure_rag_ready():
     from core.rag_engine import build_vector_store, _get_embeddings, _get_llm
-    _get_embeddings(); _get_llm(); build_vector_store()
+    from core.rag_engine import _COLLECTIONS
+    _get_embeddings()
+    _get_llm()
+    for collection_name in _COLLECTIONS.values():
+        build_vector_store(collection_name=collection_name)
     return True
 
 _ensure_rag_ready()

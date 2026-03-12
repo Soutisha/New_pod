@@ -13,5 +13,75 @@
     "from": "arch_c910e168b88a4e01ab01e349c7d1c61e",
     "to": "code_ed375987f17c448a8c356a926674eeb8",
     "relation": "implemented_by"
+  },
+  {
+    "from": "arch_44fe2ab8547d4641bc5c927cf6f58d8c",
+    "to": "code_c14f5cc4c82346a39a3e738c023e3012",
+    "relation": "implemented_by"
+  },
+  {
+    "from": "arch_b032d80453ae4c1abde4cf47a54ed70c",
+    "to": "code_066c5f94260f476290caf99d854073cd",
+    "relation": "implemented_by"
+  },
+  {
+    "from": "arch_678bea5ad8704bd69030cf96c798066e",
+    "to": "code_213aee05712747e593e8704b92e0f180",
+    "relation": "implemented_by"
+  },
+  {
+    "from": "arch_a27841f9966a47d2bd8ab4461a287eef",
+    "to": "code_06c0ebcd85304fca8ef142cf9eb84371",
+    "relation": "implemented_by"
+  },
+  {
+    "from": "arch_695baf3a767d49f8961196774656494c",
+    "to": "code_5d36af8cf8dc407badeab9dac4de2b81",
+    "relation": "implemented_by"
+  },
+  {
+    "from": "arch_126bf495c6614792af68ac5c5b36386e",
+    "to": "code_a5664f3fa92e42fc8a4229ac84342dcd",
+    "relation": "implemented_by"
+  },
+  {
+    "from": "arch_08f0efb51662449eb7b123333dcfbbe5",
+    "to": "code_590de102a2374258848a45b3efd78cc3",
+    "relation": "implemented_by"
+  },
+  {
+    "from": "arch_4bc83fd100514704ac03a1ef5fbbbb4f",
+    "to": "code_0a22907749f8402dae017a00807c1b04",
+    "relation": "implemented_by"
+  },
+  {
+    "from": "arch_13efe6bd0e4e4cfd80bc6a1742ac28ac",
+    "to": "code_c142e06706be41e6aed10432daf8309a",
+    "relation": "implemented_by"
+  },
+  {
+    "from": "arch_82d804bb45f548e192c00eb748329294",
+    "to": "code_5b1518d15dd44b95a74dd90059e3fab6",
+    "relation": "implemented_by"
+  },
+  {
+    "from": "arch_85d8b17ba68e41e896e25c06c1be6ba8",
+    "to": "code_6ccfd3d692d2409099d0ea1bb0b938c3",
+    "relation": "implemented_by"
+  },
+  {
+    "from": "arch_0dada94e18b24541bb515476f942c1fd",
+    "to": "code_bd5b2b807eb3427fa7cf151aff5e96f5",
+    "relation": "implemented_by"
+  },
+  {
+    "from": "arch_f4c22cd881394b1984e0ee07610b6f21",
+    "to": "code_20a727f303fa45d693b6ef146ffe23fe",
+    "relation": "implemented_by"
+  },
+  {
+    "from": "arch_dd7f6a4cc48c4e7abcb85cc0b53aa0c4",
+    "to": "code_ee7788a7924044c58e476f86afaa01f5",
+    "relation": "implemented_by"
   }
 ]
