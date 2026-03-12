@@ -164,6 +164,9 @@ def _load_documents(collection: str) -> List[Document]:
                 if not isinstance(node, dict):
                     continue
 
+                if node.get("type") != collection:
+                    continue
+
                 docs.extend(
                     splitter.create_documents(
                         [node["content"]],
@@ -177,6 +180,56 @@ def _load_documents(collection: str) -> List[Document]:
 
         except Exception as e:
             print(f"⚠️ Memory graph load failed: {e}")
+
+    # -----------------------------
+    # 3️⃣ Load company knowledge base
+    # -----------------------------
+
+    KB_DIR = _PROJECT_ROOT / "knowledge_base"
+
+    if KB_DIR.exists():
+
+        # Example:
+        # knowledge_base/architecture/*.md
+        # knowledge_base/code/*.py
+
+        domain_dir = KB_DIR / collection
+
+        if domain_dir.exists():
+
+            for file_path in domain_dir.rglob("*"):
+
+                if not file_path.is_file():
+                    continue
+
+                if file_path.suffix.lower() not in [
+                    ".txt", ".md", ".py", ".json", ".yaml", ".yml"
+                ]:
+                    continue
+
+                try:
+
+                    raw = file_path.read_text(
+                        encoding="utf-8",
+                        errors="ignore"
+                    )
+
+                    if not raw.strip():
+                        continue
+
+                    docs.extend(
+                        splitter.create_documents(
+                            [raw],
+                            metadatas=[{
+                                "source": "company_kb",
+                                "file": str(file_path.relative_to(KB_DIR)),
+                                "domain": collection
+                            }]
+                        )
+                    )
+
+                except Exception as e:
+                    print(f"⚠ KB load error: {e}")
 
     return docs
 

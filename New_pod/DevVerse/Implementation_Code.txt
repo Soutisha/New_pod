@@ -1,10 +1,10 @@
 FILE: app.py
 from flask import Flask, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
+import os
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///attendance.db"
+app.config["DATABASE_URI"] = "sqlite:///attendance.db"
 db = SQLAlchemy(app)
 
 class User(db.Model):
@@ -15,98 +15,68 @@ class User(db.Model):
 
 class Attendance(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    student_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    date = db.Column(db.DateTime, nullable=False)
-    status = db.Column(db.String(80), nullable=False)
-
-@app.route("/register", methods=["GET", "POST"])
-def register_page():
-    if request.method == "POST":
-        username = request.form["username"]
-        email = request.form["email"]
-        password = request.form["password"]
-        confirm_password = request.form["confirm_password"]
-
-        if password == confirm_password:
-            user = User.query.filter_by(email=email).first()
-            if user:
-                return "Email already exists"
-            new_user = User(username=username, email=email, password=generate_password_hash(password))
-            db.session.add(new_user)
-            db.session.commit()
-            return redirect(url_for("login"))
-        else:
-            return "Passwords do not match"
-    return render_template("register.html")
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    attendance_date = db.Column(db.DateTime, nullable=False)
+    status = db.Column(db.String(10), nullable=False)
 
 @app.route("/login", methods=["GET", "POST"])
-def login_page():
+def login():
     if request.method == "POST":
-        email = request.form["email"]
-        password = request.form["password"]
-        user = User.query.filter_by(email=email).first()
-        if user and check_password_hash(user.password, password):
+        username = request.form.get("username")
+        password = request.form.get("password")
+        user = User.query.filter_by(username=username).first()
+        if user and user.password == password:
             return redirect(url_for("dashboard"))
-        else:
-            return "Invalid email or password"
     return render_template("login.html")
 
-@app.route("/attendance", methods=["GET", "POST"])
-def attendance_page():
+@app.route("/register", methods=["GET", "POST"])
+def register():
     if request.method == "POST":
-        student_id = request.form["student_id"]
-        date = request.form["date"]
-        status = request.form["status"]
-        attendance = Attendance(student_id=student_id, date=date, status=status)
-        db.session.add(attendance)
+        username = request.form.get("username")
+        email = request.form.get("email")
+        password = request.form.get("password")
+        user = User(username=username, email=email, password=password)
+        db.session.add(user)
         db.session.commit()
-        return redirect(url_for("attendance"))
-    return render_template("attendance.html")
+        return redirect(url_for("login"))
+    return render_template("register.html")
 
-@app.route("/reports", methods=["GET"])
-def reports_page():
-    attendance_reports = Attendance.query.all()
-    return render_template("reports.html", attendance_reports=attendance_reports)
+@app.route("/dashboard")
+def dashboard():
+    return render_template("dashboard.html")
 
-@app.route("/profile", methods=["GET"])
-def profile_page():
-    user = User.query.filter_by(email="email").first()
-    return render_template("profile.html", user=user)
+@app.route("/attendance")
+def attendance():
+    attendances = Attendance.query.all()
+    return render_template("attendance.html", attendances=attendances)
 
-@app.route("/reset_password", methods=["GET", "POST"])
-def reset_password_page():
-    if request.method == "POST":
-        email = request.form["email"]
-        user = User.query.filter_by(email=email).first()
-        if user:
-            new_password = generate_password_hash(request.form["new_password"])
-            user.password = new_password
-            db.session.commit()
-            return redirect(url_for("login"))
-        else:
-            return "Email not found"
-    return render_template("reset_password.html")
+@app.route("/mark_attendance", methods=["POST"])
+def mark_attendance():
+    user_id = request.form.get("user_id")
+    attendance_date = request.form.get("attendance_date")
+    status = request.form.get("status")
+    attendance = Attendance(user_id=user_id, attendance_date=attendance_date, status=status)
+    db.session.add(attendance)
+    db.session.commit()
+    return redirect(url_for("attendance"))
 
-@app.route("/dashboard", methods=["GET"])
-def dashboard_page():
-    attendance_records = Attendance.query.all()
-    return render_template("dashboard.html", attendance_records=attendance_records)
+@app.route("/notifications")
+def notifications():
+    return render_template("notifications.html")
 
-@app.route("/logout", methods=["GET"])
-def logout_page():
-    return redirect(url_for("login"))
+@app.route("/backup")
+def backup():
+    # backup database data
+    return "Database backed up successfully"
 
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
     app.run(host="0.0.0.0", port=5000, debug=True)
 
-
 FILE: requirements.txt
 Flask
 Flask-SQLAlchemy
-Werkzeug
-
 
 FILE: static/style.css
 /* Premium SaaS-style UI */
@@ -116,41 +86,82 @@ body {
     padding: 0;
 }
 
-header {
-    background-color: #333;
-    color: #fff;
-    padding: 1em;
-    text-align: center;
-}
-
-main {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 2em;
-}
-
-section {
-    background-color: #f7f7f7;
-    padding: 1em;
-    margin-bottom: 1em;
+.container {
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
-h1 {
-    font-size: 24px;
-    margin-bottom: 0.5em;
+.header {
+    background-color: #333;
+    color: #fff;
+    padding: 20px;
+    text-align: center;
 }
 
-h2 {
-    font-size: 18px;
-    margin-bottom: 0.5em;
+.header h1 {
+    margin: 0;
+    padding: 0;
 }
 
-p {
-    margin-bottom: 1em;
+.split-screen {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
 }
 
-label {
+.split-screen .left {
+    width: 50%;
+    padding: 20px;
+}
+
+.split-screen .right {
+    width: 50%;
+    padding: 20px;
+}
+
+.login-form {
+    max-width: 300px;
+    margin: 40px auto;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.login-form label {
     display: block;
-    margin-bottom: 0.5
+    margin-bottom: 10px;
+}
+
+.login-form input {
+    width: 100%;
+    height: 40px;
+    margin-bottom: 20px;
+    padding: 10px;
+    border: 1px solid #ccc;
+}
+
+.login-form button {
+    width: 100%;
+    height: 40px;
+    background-color: #4CAF50;
+    color: #fff;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.login-form button:hover {
+    background-color: #3e8e41;
+}
+
+.dashboard {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    background-color
