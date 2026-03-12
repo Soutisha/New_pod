@@ -256,7 +256,7 @@ DevVerse
 ### 1️⃣ Clone repository
 
 ```
-git clone https://github.com/yourusername/devverse.git
+git clone https://github.com/Soutisha/New_pod
 cd devverse
 ```
 
